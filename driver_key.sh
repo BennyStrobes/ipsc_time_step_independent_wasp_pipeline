@@ -64,8 +64,8 @@ target_regions_dir=$wasp_qtl_root"target_regions/"
 # Directory containing CHT input files
 cht_input_file_dir=$wasp_qtl_root"cht_input_files/"
 
-# Directory containing CHT output files for optimizing the number of PCs
-cht_output_pc_opti_dir=$wasp_qtl_root"cht_output_pc_opti/"
+# Directory containing CHT output files 
+cht_output_dir=$wasp_qtl_root"cht_output/"
 
 
 
@@ -166,17 +166,15 @@ fi
 ### Optimize number of PCs for Combined Haplotype Test (CHT)
 ##################################################################
 
-
 # 2-6 (inclusive are done)
-if false; then
 for pc_num in $(seq 0 5); do
     for time_step in $(seq 0 15); do 
         for chrom_num in $(seq 1 1); do 
-            sbatch submit_chrom_parallel_cht_test.sh $time_step $chrom_num $pc_num $parameter_string $cht_input_file_dir $cht_output_pc_opti_dir
+            sbatch submit_chrom_parallel_cht_test.sh $time_step $chrom_num $pc_num $parameter_string $cht_input_file_dir $cht_output_dir
         done
     done
 done
-fi
+
 
 # No Need to do this in parallel
 if false; then
