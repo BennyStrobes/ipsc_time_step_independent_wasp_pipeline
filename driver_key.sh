@@ -49,8 +49,13 @@ quantile_normalized_time_step_independent_expression=$preprocess_dir"processed_t
 # This the quantile normalized expression data with the SVA latent factors regressed out
 corrected_quantile_normalized_expression=$preprocess_dir"processed_total_expression/quant_expr_sva_corrected.txt"
 
+# File where each row contains information on an eqtl data set we want to compare with
+# File was manually curated by me
+eqtl_data_set_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/eqtl_data_sets/eqtl_data_sets.txt"
 
-
+# Result of running metasoft on v7 eqtls
+# Downloaded from: https://www.gtexportal.org/home/datasets on December 19, 2017
+mvalue_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_v7.metasoft.txt"
 
 ##########################################################################
 # Output Directories (Assumes these directories exist before script starts)
@@ -66,6 +71,12 @@ cht_input_file_dir=$wasp_qtl_root"cht_input_files/"
 
 # Directory containing CHT output files 
 cht_output_dir=$wasp_qtl_root"cht_output/"
+
+# Directory containing WASP/CHT summary statistics enriched in other data sets
+cht_enrichment_dir=$wasp_qtl_root"enrichment/"
+
+# Directory containing visualizations/plots
+cht_visualization_dir=$wasp_qtl_root"cht_visualization/"
 
 
 
@@ -150,7 +161,7 @@ fi
 ### This script consists of two parts:
 #### A. fit_as_coefficients.py: Estimate overdispersion parameters for allele-specific test (beta binomial)
 #### B. fit_bnb_coefficients.py: Estimate overdispersion parameters for association test (beta-negative binomial)
-#### C. get_PCs.R: Extract PCs based on haplotype read count data
+#### C. get_PCs.R: Extract PCs based on haplotype read count data (make matrix num_samples by num_PCs where num_PCs == num_samples. Do it using quantile normalized expression)
 # Takes about 3 hours per time step
 if false; then
 for time_step in $(seq 0 15); do
@@ -162,28 +173,65 @@ fi
 
 
 
+
+
+
+
+
 ##################################################################
-### Optimize number of PCs for Combined Haplotype Test (CHT)
+### Run Combined Haplotype Test (CHT) / WASP
 ##################################################################
 
-# 2-6 (inclusive are done)
+# Run the following 3 steps in series
+##################################################################
+
+
+###################################################################
+### Step 1: submit_chrom_parallel_cht_test.sh (run in parallel for each time step, chromosome, and number of pcs)
+### This script runs cht for both real and permuted data
+### This will produce MANY parallel jobs (6*16*22=2112)
+### Each job takes about 5 hours to run (chromosome 1 takes a lot more!)
+### WOWZERS!!!, thats a whole lot of compute hours.
+### Sure is.
+### DATA CRUNCHING!!!! NUM NUM NUM NUM.
+### Because of this future, users probably shouldn't submit all at once.
+
+if false; then
 for pc_num in $(seq 0 5); do
     for time_step in $(seq 0 15); do 
-        for chrom_num in $(seq 1 1); do 
+        for chrom_num in $(seq 1 22); do 
             sbatch submit_chrom_parallel_cht_test.sh $time_step $chrom_num $pc_num $parameter_string $cht_input_file_dir $cht_output_dir
         done
     done
 done
+fi
 
-
-# No Need to do this in parallel
+###################################################################
+### Step 2: organize_wasp_cht_test_results.sh (run in parallel for each time step)
+### This script (does the following for each of the 6 possible numbers of PCs):
+###  A. Concatenates the 22 chromosome WASP output files into 1 file (for both real and permuted data)
+###  B. Compute Storey's qvalue on null data
+###  C. Finds the largest pvalue in null data such that the qvalue is <= .1
+###  D. Uses this pvalue as a threshold for genome wide significance on the actual data
+###  E. Using reference eqtl data sets, extract pvalues belonging to reference variant-gene pairs from OUR DATA
 if false; then
-for pc_num in $(seq 3 3); do
-    for time_step in $(seq 0 15); do 
-        sbatch organize_and_visualize_wasp_cht_test_optimize_number_pcs_results.sh $parameter_string $cht_input_file_dir $cht_output_pc_opti_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $corrected_quantile_normalized_expression $pc_num $time_step
-    done
+for time_step in $(seq 0 15); do 
+    sbatch organize_wasp_cht_test_results.sh $parameter_string $cht_input_file_dir $cht_output_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $corrected_quantile_normalized_expression $time_step $eqtl_data_set_file $mvalue_file $cht_enrichment_dir $cis_distance
 done
 fi
+
+
+##################################################################
+### Visualize results / Perform downstream analysis on WASP results
+##################################################################
 if false; then
-sh organize_and_visualize_wasp_cht_test_optimize_number_pcs_results.sh $parameter_string $cht_input_file_dir $cht_output_pc_opti_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $corrected_quantile_normalized_expression
+for pc_num in $(seq 0 5); do
+    python get_best_variant_per_gene.py $parameter_string $cht_output_dir $pc_num
+done
 fi
+
+Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization_dir $cht_enrichment_dir $eqtl_data_set_file
+
+
+
+

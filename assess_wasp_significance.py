@@ -27,14 +27,13 @@ def get_sample_index(qvalue_file, qval_thresh):
 def get_pval_thresh(null_file, qvalue_file, qval_thresh):
     # First, get index of sample that has the largest qvalue less than qval_thresh
     index = get_sample_index(qvalue_file, qval_thresh)
-    pdb.set_trace()
     f = open(null_file)
     pval_thresh = 0
     for i, line in enumerate(f):
         line = line.rstrip()
         data = line.split()
         if i == index:
-            pvaller = float(data[7])
+            pvaller = float(data[8])
     return pvaller
 
 def filter_to_significant_results(real_file, significant_results_file, pval_thresh):
@@ -48,7 +47,7 @@ def filter_to_significant_results(real_file, significant_results_file, pval_thre
             head_count = head_count + 1
             t.write(line + '\n')
             continue
-        pval = float(data[7])
+        pval = float(data[8])
         if pval > pval_thresh:  # Not significant
             continue
         t.write(line + '\n')
@@ -66,7 +65,7 @@ def filter_to_egenes(significant_results_file, significant_gene_results_file):
             head_count = head_count + 1
             t.write(line + '\n')
             continue
-        pval = float(data[7])
+        pval = float(data[8])
         gene = data[1]
         if gene not in genes:
             genes[gene] = (pval, line)
@@ -93,7 +92,9 @@ qval_thresh = float(sys.argv[6])
 
 # Get pvalue threshold corresponding to qval_thresh in null
 pval_thresh = get_pval_thresh(null_file, qvalue_file, qval_thresh)
-pdb.set_trace()
+
+# Create list of variant-gene pairs that have pvalue less than pvalue threshold
 filter_to_significant_results(real_file, significant_results_file, pval_thresh)
 
+# Create list of significant genes and their highest associated variant
 filter_to_egenes(significant_results_file, significant_gene_results_file)

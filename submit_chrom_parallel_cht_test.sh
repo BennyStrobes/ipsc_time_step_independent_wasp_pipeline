@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=12:00:00 --partition=broadwl
+#SBATCH --time=14:00:00 --partition=broadwl
 
 time_step="$1"
 chrom_num="$2"

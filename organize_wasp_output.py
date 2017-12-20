@@ -167,9 +167,10 @@ def organize_results_driver(t, chrom_input_file, dosage_genotype_file, corrected
         gene_tss = str(gene_to_tss[gene_id][0])
 
         pvalue = data[10]
-        chisq = data[9]
+        alpha = data[11]
+        beta = data[12]
 
-        t.write(str(chrom_num) + '\t' + gene_id + '\t' + gene_tss + '\t' + rsid + '\t' + rs_position + '\t' + maf + '\t' + chisq + '\t' + pvalue + '\n')
+        t.write(str(chrom_num) + '\t' + gene_id + '\t' + gene_tss + '\t' + rsid + '\t' + rs_position + '\t' + maf + '\t' + alpha + '\t' + beta + '\t' + pvalue + '\n')
 
     return t
 
@@ -188,17 +189,20 @@ corrected_quantile_normalized_expression = sys.argv[4]
 gencode_gene_annotation_file = sys.argv[5]
 target_region_file = sys.argv[6]
 wasp_results_stem = sys.argv[7]
-start_chrom = int(sys.argv[8])
-end_chrom = int(sys.argv[9])
 
 
+# Initialize output file
 output_file = wasp_results_stem + 'eqtl_results.txt'
 t = open(output_file, 'w')
-t.write('chrom_num\tgene_id\tgene_position\tregulatory_site_id\tregulatory_site_position\tregulatory_allele_frequency\tbeta\tpvalue\n')
+t.write('chrom_num\tgene_id\tgene_position\tregulatory_site_id\tregulatory_site_position\tregulatory_allele_frequency\talpha\tbeta\tpvalue\n')
 
+# Get list of cell lines that are used at this time step
 cell_lines = get_cell_lines_in_this_time_step(corrected_quantile_normalized_expression,time_step)
 
-for chrom_num in range(start_chrom,end_chrom + 1):
+# Loop through chromosomes
+for chrom_num in range(1,23):
+    # Chromosome specific input file
     chrom_input_file = wasp_results_stem + str(chrom_num) + '.txt'
+    # Add this chromosome specific input file to our output file
     t = organize_results_driver(t, chrom_input_file, dosage_genotype_file, corrected_quantile_normalized_expression, gencode_gene_annotation_file, target_region_file, chrom_num, cell_lines)
 t.close()
