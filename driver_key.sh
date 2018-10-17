@@ -32,9 +32,6 @@ het_prob_genotype_file=$preprocess_dir"genotype/YRI_het_prob_genotype.vcf"
 # Dosage genotype for all cell lines in our analysis
 dosage_genotype_file=$preprocess_dir"genotype/YRI_genotype.vcf"
 
-# PCA loadings for our samples (done independently in each time step)
-#  Therefor, there is one file for each time step
-pca_loading_file_stem=$preprocess_dir"covariates/pca_loadings_time_step_independent_"
 
 # Processed total expression data
 # This is the quantile normalized expression data

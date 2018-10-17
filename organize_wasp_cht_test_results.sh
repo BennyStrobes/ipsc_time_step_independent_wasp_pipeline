@@ -35,9 +35,6 @@ for pc_num in $(seq 0 5); do
     wasp_results_stem=$cht_output_dir"cht_perm1_results_"$parameter_string"_num_pc_"$pc_num"_time_"$time_step"_"
     # python organize_wasp_output.py $time_step $cht_output_dir $dosage_genotype_file $corrected_quantile_normalized_expression $gencode_gene_annotation_file $target_region_file $wasp_results_stem
 
-    # wasp_results_stem=$cht_output_dir"cht_perm2_results_"$parameter_string"_num_pc_"$pc_num"_time_"$time_step"_"
-    # python organize_wasp_output.py $time_step $cht_output_dir $dosage_genotype_file $corrected_quantile_normalized_expression $gencode_gene_annotation_file $target_region_file $wasp_results_stem
-
 
     # Result files from concatenation
     null_file1=$cht_output_dir"cht_perm1_results_"$parameter_string"_num_pc_"$pc_num"_time_"$time_step"_eqtl_results.txt"
