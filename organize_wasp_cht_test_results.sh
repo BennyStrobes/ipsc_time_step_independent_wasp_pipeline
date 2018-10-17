@@ -10,10 +10,7 @@ dosage_genotype_file="$5"
 gencode_gene_annotation_file="$6"
 corrected_quantile_normalized_expression="$7"
 time_step="$8"
-eqtl_data_set_file="$9"
-mvalue_file="${10}"
-cht_enrichment_dir="${11}"
-cis_distance="${12}"
+cis_distance="$9"
 
 
 

@@ -4,9 +4,7 @@ import sys
 import scipy.stats
 import pdb
 import gzip
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+
 
 
 
@@ -542,16 +540,62 @@ def extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string,
 parameter_string = sys.argv[1]
 cht_output_dir = sys.argv[2]
 pc_num = sys.argv[3]
-used_gtex_tissues_file = sys.argv[4]
-snp_id_to_rs_id_file = sys.argv[5]
-dosage_genotype_file = sys.argv[6]
-cm_eqtl_file = sys.argv[7]
-cm_egene_file = sys.argv[8]
-ipsc_eqtl_file = sys.argv[9]
-ipsc_egene_file = sys.argv[10]
+cm_eqtl_file = sys.argv[4]
+ipsc_eqtl_file = sys.argv[5]
+fdr = sys.argv[6]
 
 
 parameter_string = parameter_string + '_num_pc_' + pc_num
+
+
+####################################################
+# Compare per time step eqtls with Nick's QTLs
+####################################################
+output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_banovich_studies_geometric_mean_05.txt'
+time_step_geometric_egenes_05 = extract_egenes_with_smallest_geometric_mean_across_time(cht_output_dir, parameter_string, fdr)
+# Using these variant gene pairs, find those variant gene pairs in ipsc eqtl data and ipsc-cm eqtl data
+merge_time_steps_eqtls_and_banovich_eqtls(output_file, time_step_geometric_egenes_05, parameter_string, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########################
+# Old scripts (retired)
+#########################
+
 
 
 #snp_to_rsid = get_snp_id_to_rs_id_mapping(snp_id_to_rs_id_file, dosage_genotype_file)
@@ -562,56 +606,29 @@ parameter_string = parameter_string + '_num_pc_' + pc_num
 #  Find top nn genes (and variant) in each time step. 
 # Then for each time step, get pvalues of those variant-gene pairs using nicks data
 ####################################################
-num_genes = 100
-extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string, pc_num, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
+#num_genes = 100
+#extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string, pc_num, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
 
-num_genes = 200
-extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string, pc_num, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
+#num_genes = 200
+#extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string, pc_num, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
 
-num_genes = 300
-extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string, pc_num, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
-
-
-####################################################
-# Compare per time step eqtls with Nick's QTLs
-####################################################
-print('---------------')
-print('.05')
-print('---------------')
-output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_banovich_studies_geometric_mean_05.txt'
-#time_step_geometric_egenes_05 = extract_egenes_with_smallest_geometric_mean_across_time(cht_output_dir, parameter_string, '.05')
-# merge_time_steps_eqtls_and_banovich_eqtls(output_file, time_step_geometric_egenes_05, parameter_string, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
-#summarize_time_step_banovich_comparison(output_file, pc_num)
-
-print('---------------')
-print('.1')
-print('---------------')
-output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_banovich_studies_geometric_mean_1.txt'
-#time_step_geometric_egenes_05 = extract_egenes_with_smallest_geometric_mean_across_time(cht_output_dir, parameter_string, '.1')
-# merge_time_steps_eqtls_and_banovich_eqtls(output_file, time_step_geometric_egenes_05, parameter_string, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
-#summarize_time_step_banovich_comparison(output_file)
+#num_genes = 300
+#extract_top_nn_from_each_time_step_and_banovich(num_genes, parameter_string, pc_num, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
 
 
-print('---------------')
-print('.2')
-print('---------------')
-output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_banovich_studies_geometric_mean_2.txt'
-#time_step_geometric_egenes_05 = extract_egenes_with_smallest_geometric_mean_across_time(cht_output_dir, parameter_string, '.2')
-# merge_time_steps_eqtls_and_banovich_eqtls(output_file, time_step_geometric_egenes_05, parameter_string, cht_output_dir, cm_eqtl_file, ipsc_eqtl_file)
-#summarize_time_step_banovich_comparison(output_file)
 
 ###########################################################################
 # Method 1: Extract egenes with smallest geometric mean across time steps (efdr <= .05)
 ###########################################################################
-output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_gtex_v7_geometric_mean_05.txt'
+#output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_gtex_v7_geometric_mean_05.txt'
 #time_step_geometric_egenes_05 = extract_egenes_with_smallest_geometric_mean_across_time(cht_output_dir, parameter_string, '.05')
-merge_time_steps_eqtls_and_gtex_eqtls(output_file, time_step_geometric_egenes_05, parameter_string, cht_output_dir, used_gtex_tissues_file, snp_id_to_rs_id_file, snp_to_rsid, cm_eqtl_file, ipsc_eqtl_file)
+# merge_time_steps_eqtls_and_gtex_eqtls(output_file, time_step_geometric_egenes_05, parameter_string, cht_output_dir, used_gtex_tissues_file, snp_id_to_rs_id_file, snp_to_rsid, cm_eqtl_file, ipsc_eqtl_file)
 
 
 ###########################################################################
 # Method 2: Extract egenes with smallest geometric mean across time steps (efdr <= .1)
 ###########################################################################
-output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_gtex_v7_geometric_mean_1.txt'
+#output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_gtex_v7_geometric_mean_1.txt'
 #time_step_geometric_egenes_1 = extract_egenes_with_smallest_geometric_mean_across_time(cht_output_dir, parameter_string, '.1')
 #merge_time_steps_eqtls_and_gtex_eqtls(output_file, time_step_geometric_egenes_1, parameter_string, cht_output_dir, used_gtex_tissues_file, snp_id_to_rs_id_file, snp_to_rsid, cm_eqtl_file, ipsc_eqtl_file)
 
@@ -619,7 +636,7 @@ output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_
 ###########################################################################
 # Method 3 Extract anything that is an egene in any gtex tissue, ipsc, ipsc-cm, or ipsc-time series data sets
 ###########################################################################
-output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_gtex_v7_all_egenes.txt'
+#output_file = cht_output_dir + parameter_string + '_eqtls_across_time_steps_and_gtex_v7_all_egenes.txt'
 #all_egenes = extract_all_egenes(cht_output_dir, parameter_string, cm_egene_file, ipsc_egene_file, used_gtex_tissues_file)
 #merge_time_steps_eqtls_and_gtex_eqtls(output_file, all_egenes, parameter_string, cht_output_dir, used_gtex_tissues_file, snp_id_to_rs_id_file, snp_to_rsid, cm_eqtl_file, ipsc_eqtl_file)
 

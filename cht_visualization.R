@@ -842,8 +842,6 @@ eqtl_sharing_plot <- function(input_file, output_file, pc_num) {
 parameter_string = args[1]  # string used to keep track of files used with specified parameter settting
 cht_output_dir = args[2]  # input directory with cht test results
 cht_visualization_dir = args[3]  # output directory to save images
-cht_enrichment_dir = args[4]   # Input directory that has files showing our pvalues of eQTLs (according to various data sets)
-eqtl_data_set_file = args[5]  # Input file containing info (1 line) for each of the data sets
 
 ###############################################
 # Boxplot of number of egenes as a function of number of pcs

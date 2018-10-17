@@ -34,22 +34,13 @@ dosage_genotype_file=$preprocess_dir"genotype/YRI_genotype.vcf"
 # This is the quantile normalized expression data
 quantile_normalized_expression=$preprocess_dir"processed_total_expression/quantile_normalized.txt"
 
-# File containing necessary information to convert from rsid to snpid and vice-versa
-snp_id_to_rs_id_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_2016-01-15_v7_WGS_652ind_VarID_Lookup_Table.txt"
-
 # CM eqtl file
 # Downloaded here http://eqtl.uchicago.edu/yri_ipsc/eQTL_WASP_CM.txt
 cm_eqtl_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eQTL_WASP_CM_thresh_1.0.txt"
 
-# CM eqtl egene file
-cm_egene_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eQTL_WASP_CM_egenes_thresh_1e-05.txt"
-
 # ipsc eqtl file
 # Downloaded here http://eqtl.uchicago.edu/yri_ipsc/iPSC-eQTL-summary.txt
 ipsc_eqtl_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/ipsc_eqtl_all/ipsc_eqtl_all_associations.txt"
-
-# ipsc eqtl egene file
-ipsc_egene_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/permutations.all.RNAseq_run.fixed.txt.gz.bh.txt"
 
 
 ##########################################################################
@@ -67,8 +58,8 @@ cht_input_file_dir=$wasp_qtl_root"cht_input_files/"
 # Directory containing CHT output files 
 cht_output_dir=$wasp_qtl_root"cht_output/"
 
-# Directory containing WASP/CHT summary statistics enriched in other data sets
-cht_enrichment_dir=$wasp_qtl_root"enrichment/"
+# Directory containing matrix factorization results
+matrix_factorization_dir=$wasp_qtl_root"matrix_factorization/"
 
 # Directory containing visualizations/plots
 cht_visualization_dir=$wasp_qtl_root"cht_visualization/"
@@ -105,11 +96,11 @@ parameter_string="cis_distance_"$cis_distance"_maf_cutoff_0"$maf_cutoff"_min_rea
 ##################################################################
 ### Prepare input files to Combined Haplotype Test (CHT)
 ##################################################################
-
-
-
-# Run the following 4 steps in series
+# Run the following 5 steps in series
 ##################################################################
+
+
+
 
 ###################################################################
 ### Step 1: get_wasp_target_regions.sh (run in parallel for each time step)
@@ -228,33 +219,31 @@ fi
 ###  B. Run eFDR correction on data using real and permutation runs of wasp to assess genome wide significance
 if false; then
 for time_step in $(seq 0 15); do 
-    sbatch organize_wasp_cht_test_results.sh $parameter_string $cht_input_file_dir $cht_output_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $quantile_normalized_expression $time_step $eqtl_data_set_file $mvalue_file $cht_enrichment_dir $cis_distance
+    sbatch organize_wasp_cht_test_results.sh $parameter_string $cht_input_file_dir $cht_output_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $quantile_normalized_expression $time_step $cis_distance
 done
 fi
 
 
 ##################################################################
 ### Step 3: Run down-stream analysis on WASP-CHT test results
-for pc_num in $(seq 3 3); do
-    if false; then
-    python get_best_variant_per_gene.py $parameter_string $cht_output_dir $pc_num
-    sbatch submit_organize_tests_across_studies.sh $parameter_string $cht_output_dir $pc_num $used_gtex_tissues_file $snp_id_to_rs_id_file $dosage_genotype_file $cm_eqtl_file $cm_egene_file $ipsc_eqtl_file $ipsc_egene_file
-    fi
-done
-
+### The following script runs three separate down-stream analyses:
+##### 1. `get_best_variant_per_gene.py`: Identify the most signficicant variant per egene (and gene with one significant per time step eQTL in any time step). The most significant variant is selected as the one with the smallest geometric mean pvalue across the 16 time steps.
+##### 2.  `organize_tests_across_studies.py`: Using the egenes selected in part 1, find the pvalues of those variant gene pairs in Nick Banovich's iPSC and iPSC-CM eqtl data sets
+##### 3. 'run_matrix_factorization.py': Run spare non-negative matrix factorization on the matrix of summary statisics (num_eGenesXnum_time_steps) for a range of number of latent factors and sparsity parameters
 
 fdr=".05"
 if false; then
 for pc_num in $(seq 3 3); do
-    sh run_matrix_factorization.sh $parameter_string $cht_output_dir $cht_visualization_dir $target_regions_dir $gencode_gene_annotation_file $num_genes $alpha $fdr $pc_num
+    sh run_downstream_analysis_on_wasp_results.sh $parameter_string $cht_output_dir $pc_num $fdr $target_regions_dir $matrix_factorization_dir $cm_eqtl_file $ipsc_eqtl_file
 done
 fi
 
 
 
 
+
 if false; then
-Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization_dir $cht_enrichment_dir $eqtl_data_set_file
+Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization_dir
 fi
 
 
@@ -358,6 +347,21 @@ fi
 ######################################
 # Old Analysis (not used currently)
 #######################################
+
+
+# CM eqtl egene file
+cm_egene_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eQTL_WASP_CM_egenes_thresh_1e-05.txt"
+
+# ipsc eqtl egene file
+ipsc_egene_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/permutations.all.RNAseq_run.fixed.txt.gz.bh.txt"
+
+
+
+# Directory containing WASP/CHT summary statistics enriched in other data sets
+cht_enrichment_dir=$wasp_qtl_root"enrichment/"
+
+# File containing necessary information to convert from rsid to snpid and vice-versa
+snp_id_to_rs_id_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_2016-01-15_v7_WGS_652ind_VarID_Lookup_Table.txt"
 
 
 # File where each row contains information on an eqtl data set we want to compare with

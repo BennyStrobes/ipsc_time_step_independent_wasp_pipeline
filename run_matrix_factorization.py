@@ -67,6 +67,10 @@ def run_matrix_factorization(input_mat, row_labels, column_labels, output_root, 
 
     W, H = reorder_latent_factors(W,H)
 
+    # Save loading matrix to output file
+    loading_matrix_output_file = output_root + 'loading_matrix.txt'
+    np.savetxt(loading_matrix_output_file, H, delimiter='\t',fmt="%s")
+
     # Make heatmap visualizing H
     heatmap_file = output_root + 'heatmap.png'
     visualize_heatmap(H, heatmap_file, column_labels,title)
@@ -209,13 +213,12 @@ def gene_set_enrichment_shell(W, all_genes, egenes, variant_gene_pairs, output_r
 
 parameter_string = sys.argv[1]
 cht_output_dir = sys.argv[2]
-cht_visualization_dir = sys.argv[3]
+matrix_factorization_dir = sys.argv[3]
 target_regions_dir = sys.argv[4]
-gencode_file = sys.argv[5]
-num_genes = int(sys.argv[6])
-alpha_param = float(sys.argv[7])
-fdr = sys.argv[8]
-pc_num = int(sys.argv[9])
+fdr = sys.argv[5]
+pc_num = int(sys.argv[6])
+
+
 
 # Extract list of all genes used as input to wasp
 cht_input_file = target_regions_dir + 'target_regions_' + parameter_string + '_merged.txt'
@@ -239,21 +242,33 @@ variant_gene_pairs = alpha_full[:,0]
 
 allelic_fraction = np.abs((alpha/(alpha+beta)) - .5) 
 
-
-# Extract list of all egenes found in WASP
-egenes = extract_list_of_egenes(variant_gene_pairs)
+alpha_params = [0, .25, .5, .75, 1]
 
 
 for num_components in np.arange(3, 6):
-    print('num_components: ' + str(num_components))
-    ## VERSION 1: allelic fraction
-    version = 'allelic_fraction'
-    output_root = cht_visualization_dir + parameter_string + '_num_pc_' + str(pc_num) + '_fdr_' + fdr + '_' + version + '_factorization_' + 'top_' + str(num_genes) + '_alpha_' + str(alpha_param) + '_' + str(num_components) + '_'
-    # W = run_matrix_factorization(allelic_fraction, variant_gene_pairs, np.arange(16).astype(str), output_root, version, num_components, alpha_param)
-    #gene_set_enrichment_shell(W, all_genes, egenes, variant_gene_pairs, output_root, cht_visualization_dir, gencode_file, num_genes)
-    
-    ## VERSION 2: pvalue
-    version = 'pvalue'
-    output_root = cht_visualization_dir + parameter_string + '_num_pc_' + str(pc_num) + '_fdr_' + fdr + '_' + version + '_factorization_' + 'top_' + str(num_genes) + '_alpha_' + str(alpha_param) + '_' + str(num_components) + '_'
-    W = run_matrix_factorization(pvalue, variant_gene_pairs, np.arange(16).astype(str), output_root, version, num_components, alpha_param)
+    for alpha_param in alpha_params:
+        print('num_components: ' + str(num_components) + ' alpha param: ' + str(alpha_param))
+
+        ## VERSION 2: pvalue
+        version = 'pvalue'
+        output_root = matrix_factorization_dir + parameter_string + '_num_pc_' + str(pc_num) + '_fdr_' + fdr + '_' + version + '_factorization' + '_alpha_' + str(alpha_param) + '_' + str(num_components) + '_'
+        W = run_matrix_factorization(pvalue, variant_gene_pairs, np.arange(16).astype(str), output_root, version, num_components, alpha_param)
+
+
+
+
+
+
+
+
+
+
+#########################################
+# Retired scripts (not currently used)
+##########################################
+# Extract list of all egenes found in WASP
+#egenes = extract_list_of_egenes(variant_gene_pairs)
+
+
+
     #gene_set_enrichment_shell(W, all_genes, egenes, variant_gene_pairs, output_root, cht_visualization_dir, gencode_file, num_genes)
