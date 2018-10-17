@@ -908,7 +908,7 @@ num_genes <- 100
 for (pc_num in 3:3) {
     input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results.txt")
     output_file <- paste0(cht_visualization_dir, parameter_string, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results_boxplot.pdf")
-    boxplot_showing_top_n_variant_gene_pairs_per_time_step_with_banovich_results(input_file, output_file, num_genes, pc_num)
+    #boxplot_showing_top_n_variant_gene_pairs_per_time_step_with_banovich_results(input_file, output_file, num_genes, pc_num)
 }
 
 

@@ -25,9 +25,6 @@ raw_allelic_counts_dir=$preprocess_dir"raw_allelic_counts/"
 # Required by WASP
 chrom_info_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/chromInfo.txt"
 
-# Heterozygous probability genotype file for all cell_lines in our analysis
-# These heterozygous probabilities come from impute2
-het_prob_genotype_file=$preprocess_dir"genotype/YRI_het_prob_genotype.vcf"
 
 # Dosage genotype for all cell lines in our analysis
 dosage_genotype_file=$preprocess_dir"genotype/YRI_genotype.vcf"
@@ -36,29 +33,6 @@ dosage_genotype_file=$preprocess_dir"genotype/YRI_genotype.vcf"
 # Processed total expression data
 # This is the quantile normalized expression data
 quantile_normalized_expression=$preprocess_dir"processed_total_expression/quantile_normalized.txt"
-
-#  Processed total expression data that was processed independently at each time point
-# This is the quantile normalized data
-quantile_normalized_time_step_independent_expression=$preprocess_dir"processed_total_expression/time_step_independent_quantile_normalized.txt"
-
-# Processed and corrected total expression data
-# This the quantile normalized expression data with the SVA latent factors regressed out
-corrected_quantile_normalized_expression=$preprocess_dir"processed_total_expression/quant_expr_sva_corrected.txt"
-
-# File where each row contains information on an eqtl data set we want to compare with
-# File was manually curated by me
-eqtl_data_set_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eqtl_data_sets_temp.txt"
-
-# File containing egene and all-eqtl files for gtex tissues we are interested in comparing with
-used_gtex_tissues_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/used_gtex_tissues.txt"
-
-# Result of running metasoft on v7 eqtls
-# Downloaded from: https://www.gtexportal.org/home/datasets on December 19, 2017
-mvalue_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_v7.metasoft.txt"
-
-# Directory containing chromHMM results
-# Each cell line has its own file with suffix $cell_line_identifier'_15_coreMarks_mnemonics.bed.gz'
-chrom_hmm_input_dir="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/chrom_hmm/"
 
 # File containing necessary information to convert from rsid to snpid and vice-versa
 snp_id_to_rs_id_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_2016-01-15_v7_WGS_652ind_VarID_Lookup_Table.txt"
@@ -149,7 +123,7 @@ parameter_string="cis_distance_"$cis_distance"_maf_cutoff_0"$maf_cutoff"_min_rea
 ### This code was initially get_target_regions.py (in WASP repo), but I made some minor edits to it
 if false; then
 for time_step in $(seq 0 15); do
-    sbatch get_wasp_target_regions.sh $time_step $target_regions_dir $corrected_quantile_normalized_expression $genotype_dir $raw_allelic_counts_dir $chrom_info_file $dosage_genotype_file $cis_distance $maf_cutoff $min_read_count $min_as_read_count $min_het_count $gencode_gene_annotation_file
+    sbatch get_wasp_target_regions.sh $time_step $target_regions_dir $quantile_normalized_expression $genotype_dir $raw_allelic_counts_dir $chrom_info_file $dosage_genotype_file $cis_distance $maf_cutoff $min_read_count $min_as_read_count $min_het_count $gencode_gene_annotation_file
 done
 fi
 
@@ -184,14 +158,24 @@ for time_step in $(seq 0 15); do
 done
 fi
 
-
+##################################################################
+# Step 4: Update total read depth (directly from WASP)
+# This script updates the expected read depths of the input files for the Combined Haplotype Test. GC content biases and peakiness o
+# of the data (potentially caused by differences in ChIP efficiency 
+# or the expression of a few highly expressed genes) can vary greatly 
+# between individuals, sequencing libraries, and lanes. To correct 
+# for this, for each individual, we fit quartic splines across regions 
+#for GC content and combined (across all individuals) read depth.
+# The fitted splines provide an expected read depth for each
+# region for each individual. This expected read depth is used 
+# as an input to the CHT.
 if false; then
 sbatch update_total_depth.sh $genotype_dir $cht_input_file_dir
 fi
 
 
 ###################################################################
-### Step 4: fit_overdispersion_parameter.sh (run in parrallel for each time step)
+### Step 5: fit_overdispersion_parameter.sh (run in parrallel for each time step)
 ### This script consists of two parts:
 #### A. fit_as_coefficients.py: Estimate overdispersion parameters for allele-specific test (beta binomial)
 #### B. fit_bnb_coefficients.py: Estimate overdispersion parameters for association test (beta-negative binomial)
@@ -218,7 +202,6 @@ fi
 # Run the following 3 steps in series
 ##################################################################
 
-
 ###################################################################
 ### Step 1: submit_chrom_parallel_cht_test.sh (run in parallel for each time step, chromosome, and number of pcs)
 ### This script runs cht for both real and permuted data
@@ -229,7 +212,7 @@ fi
 ### DATA CRUNCHING!!!! NUM NUM NUM NUM.
 ### Because of this future, users probably shouldn't submit all at once.
 if false; then
-for pc_num in $(seq 0 0); do
+for pc_num in $(seq 0 5); do
     for time_step in $(seq 0 15); do 
         for chrom_num in $(seq 1 22); do 
             sbatch submit_chrom_parallel_cht_test.sh $time_step $chrom_num $pc_num $parameter_string $cht_input_file_dir $cht_output_dir
@@ -242,20 +225,16 @@ fi
 ### Step 2: organize_wasp_cht_test_results.sh (run in parallel for each time step)
 ### This script (does the following for each of the 6 possible numbers of PCs):
 ###  A. Concatenates the 22 chromosome WASP output files into 1 file (for both real and permuted data)
-###  B. Compute Storey's qvalue on null data
-###  C. Finds the largest pvalue in null data such that the qvalue is <= .1
-###  D. Uses this pvalue as a threshold for genome wide significance on the actual data
-###  E. Using reference eqtl data sets, extract pvalues belonging to reference variant-gene pairs from OUR DATA
+###  B. Run eFDR correction on data using real and permutation runs of wasp to assess genome wide significance
 if false; then
 for time_step in $(seq 0 15); do 
-    sbatch organize_wasp_cht_test_results.sh $parameter_string $cht_input_file_dir $cht_output_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $corrected_quantile_normalized_expression $time_step $eqtl_data_set_file $mvalue_file $cht_enrichment_dir $cis_distance
+    sbatch organize_wasp_cht_test_results.sh $parameter_string $cht_input_file_dir $cht_output_dir $target_regions_dir $dosage_genotype_file $gencode_gene_annotation_file $quantile_normalized_expression $time_step $eqtl_data_set_file $mvalue_file $cht_enrichment_dir $cis_distance
 done
 fi
 
 
 ##################################################################
-### Visualize results / Perform downstream analysis on WASP results
-##################################################################
+### Step 3: Run down-stream analysis on WASP-CHT test results
 for pc_num in $(seq 3 3); do
     if false; then
     python get_best_variant_per_gene.py $parameter_string $cht_output_dir $pc_num
@@ -263,8 +242,6 @@ for pc_num in $(seq 3 3); do
     fi
 done
 
-num_genes="200"
-alpha=".25"
 
 fdr=".05"
 if false; then
@@ -276,8 +253,71 @@ fi
 
 
 
-
+if false; then
 Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization_dir $cht_enrichment_dir $eqtl_data_set_file
+fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -320,7 +360,20 @@ Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization
 #######################################
 
 
+# File where each row contains information on an eqtl data set we want to compare with
+# File was manually curated by me
+eqtl_data_set_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eqtl_data_sets_temp.txt"
 
+# File containing egene and all-eqtl files for gtex tissues we are interested in comparing with
+used_gtex_tissues_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/used_gtex_tissues.txt"
+
+# Result of running metasoft on v7 eqtls
+# Downloaded from: https://www.gtexportal.org/home/datasets on December 19, 2017
+mvalue_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_v7.metasoft.txt"
+
+# Directory containing chromHMM results
+# Each cell line has its own file with suffix $cell_line_identifier'_15_coreMarks_mnemonics.bed.gz'
+chrom_hmm_input_dir="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/chrom_hmm/"
 
 
 
