@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=7:00:00 --mem=10GB --partition=broadwl
+#SBATCH --time=18:00:00 --mem=10GB
 
 time_step="$1"
 target_regions_dir="$2"

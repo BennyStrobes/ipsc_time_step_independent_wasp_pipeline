@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=1:00:00 --partition=broadwl
+#SBATCH --time=1:00:00
 
 target_regions_dir="$1"
 cis_distance="$2"

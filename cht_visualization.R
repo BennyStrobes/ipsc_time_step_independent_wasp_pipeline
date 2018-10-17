@@ -22,7 +22,7 @@ egenes_as_function_of_pcs_boxplot <- function(cht_output_dir, parameter_string, 
     for (temp_time_step in 0:15) {
         for (temp_num_pc in 0:5) {
             # egene file for this time step and this pc
-            egene_file <- paste0(cht_output_dir,"cht_results_",parameter_string,"_num_pc_", temp_num_pc,"_time_",temp_time_step,"_qval_.1_significant_egenes.txt")
+            egene_file <- paste0(cht_output_dir,"cht_results_",parameter_string,"_num_pc_", temp_num_pc,"_time_",temp_time_step,"_efdr_thresh_.05_significant_egenes.txt")
             egene_data <- read.table(egene_file, header=TRUE)
             # Get number of egenes at this time step and pc num
             num_egenes <- dim(egene_data)[1]
@@ -33,10 +33,67 @@ egenes_as_function_of_pcs_boxplot <- function(cht_output_dir, parameter_string, 
         }
     }
     # Put data in organized data frame
-    df <- data.frame(egenes=as.numeric(egenes),time_step = factor(time_step), num_pcs = factor(num_pcs))
+    df <- data.frame(egenes=as.numeric(egenes),time_step = time_step, num_pcs = factor(num_pcs))
     # PLOT!!
     box_plot <- ggplot(df, aes(x=num_pcs, y=egenes)) + geom_boxplot(width=.54)
     box_plot <- box_plot + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    box_plot <- box_plot + labs(x = "Number of PCs", y = "Number of eGenes")
+    ggsave(box_plot, file=output_file,width = 20,height=10.5,units="cm")
+}
+
+boxplot_showing_top_n_variant_gene_pairs_per_time_step_with_banovich_results <- function(input_file, output_file, num_genes, pc_num) {
+    data <- read.table(input_file, header=TRUE)
+
+    df_ipsc <- data.frame(time_step=factor(data[data$data_type=="iPSC",]$time_step), pvalue=-log10(data[data$data_type=="iPSC",]$pvalue + .00000000001))
+    box_plot_ipsc <- ggplot(df_ipsc, aes(x=time_step, y=pvalue)) + geom_boxplot()
+    box_plot_ipsc <- box_plot_ipsc + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    box_plot_ipsc <- box_plot_ipsc+ labs(x = "Time Step", y = "-log10(pvalue)")
+
+    df_ipsc_cm <- data.frame(time_step=factor(data[data$data_type=="iPSC_CM",]$time_step), pvalue=-log10(data[data$data_type=="iPSC_CM",]$pvalue + .00000000001))
+    box_plot_ipsc_cm <- ggplot(df_ipsc_cm, aes(x=time_step, y=pvalue)) + geom_boxplot()
+    box_plot_ipsc_cm <- box_plot_ipsc_cm + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    box_plot_ipsc_cm <- box_plot_ipsc_cm + labs(x = "Time Step", y = "-log10(pvalue)")
+
+
+    pdf(output_file)
+    gg <- plot_grid(box_plot_ipsc, box_plot_ipsc_cm,nrow=2,ncol=1,label_size=8)
+    combined_gg <- ggdraw() + draw_plot(gg,0,0,1,1)
+    print(combined_gg)
+    dev.off()
+
+}
+
+
+###############################################
+#  Boxplot of number of egenes as a function of number of pcs
+#  Each point in boxplot is a time step
+egenes_as_function_of_pcs_violinplot <- function(cht_output_dir, parameter_string, output_file) {
+    # Extract data
+    egenes <- c()
+    time_step <- c()
+    num_pcs <- c()
+
+    # loop through time steps and pcs
+    for (temp_time_step in 0:15) {
+        for (temp_num_pc in 0:5) {
+            # egene file for this time step and this pc
+            egene_file <- paste0(cht_output_dir,"cht_results_",parameter_string,"_num_pc_", temp_num_pc,"_time_",temp_time_step,"_efdr_thresh_.05_significant_egenes.txt")
+            egene_data <- read.table(egene_file, header=TRUE)
+            # Get number of egenes at this time step and pc num
+            num_egenes <- dim(egene_data)[1]
+            # Now store data 
+            egenes <- c(egenes,num_egenes)
+            time_step <- c(time_step, temp_time_step)
+            num_pcs <- c(num_pcs, temp_num_pc)
+        }
+    }
+    # Put data in organized data frame
+    df <- data.frame(egenes=as.numeric(egenes),time_step = time_step, num_pcs = factor(num_pcs))
+    # PLOT!!
+    box_plot <- ggplot(df, aes(x=num_pcs, y=egenes,colour=time_step)) + geom_violin()
+    box_plot <- box_plot  + geom_jitter(aes(colour=time_step),shape=16, position=position_jitter(0.06))
+    box_plot <- box_plot + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    box_plot <- box_plot + scale_color_gradient(low="pink",high="blue")
     box_plot <- box_plot + labs(x = "Number of PCs", y = "Number of eGenes")
     ggsave(box_plot, file=output_file,width = 20,height=10.5,units="cm")
 }
@@ -53,6 +110,26 @@ read_in_summary_statistic_data <- function(file_name) {
 correlation_heatmap <- function(correlation_matrix, output_file, version,num_pc) {
     colnames(correlation_matrix) <- paste0(0:15)
     rownames(correlation_matrix) <- paste0(0:15)
+    nn <- dim(correlation_matrix)[1]
+    vec <- c()
+    time_step_diff <- c()
+    for (i in 1:nn){
+        for (j in 1:nn) {
+            if (i != j) {
+                if (i > j) {
+                    vec <- c(vec,correlation_matrix[i,j])
+                    time_step_diff <- c(time_step_diff, abs(i-j))
+                }
+            }
+        }
+    }
+    print(paste0("Num PCs = ",num_pc," / Statistic = ", version))
+    lm_result <- lm(vec ~ time_step_diff)
+    print(summary(lm_result))
+    maxy <- max(vec)
+    for (i in 1:nn) {
+        correlation_matrix[i,i] <- maxy
+    }
     melted_corr <- melt(correlation_matrix)
 
     # Axis labels are factors
@@ -61,7 +138,9 @@ correlation_heatmap <- function(correlation_matrix, output_file, version,num_pc)
 
     #  PLOT!
     heatmap <- ggplot(data=melted_corr, aes(x=X1, y=X2)) + geom_tile(aes(fill=value)) 
-    heatmap <- heatmap + scale_fill_distiller(palette = "RdPu")
+    #heatmap <- heatmap + scale_fill_distiller()
+    #heatmap <- heatmap + scale_fill_brewer(values = brewer.pal(3,"RdPu"))
+    heatmap <- heatmap + scale_fill_distiller(palette = "RdPu", direction=1)
     heatmap <- heatmap + theme(text = element_text(size=18), panel.background = element_blank(), axis.text.x = element_text(angle = 0, vjust=.5))
     heatmap <- heatmap + labs(x = "Time Step", y = "Time Step", title=paste0("Num PCs = ",num_pc," / Statistic = ", version), fill= "Spearman Rho")
 
@@ -82,9 +161,9 @@ summary_statistic_correlation_heatmap <- function(parameter_string, pc_num, cht_
     file_stem <- paste0(cht_output_dir,"best_variant_per_egene_",parameter_string, "_num_pc_",pc_num)
 
     # Specific summmary statistic files
-    alpha_file <- paste0(file_stem,"_alpha.txt")
-    beta_file <- paste0(file_stem, "_beta.txt")
-    pvalue_file <- paste0(file_stem, "_pvalues.txt")
+    alpha_file <- paste0(file_stem,"_fdr_.05_alpha.txt")
+    beta_file <- paste0(file_stem, "_fdr_.05_beta.txt")
+    pvalue_file <- paste0(file_stem, "_fdr_.05_pvalues.txt")
 
     # Load in summary stat data
     # Of dimension (number of eGenes) X (number of time steps)
@@ -110,6 +189,173 @@ summary_statistic_correlation_heatmap <- function(parameter_string, pc_num, cht_
     correlation_heatmap(cor(allelic_fraction,method="spearman"), paste0(output_file_stem, "allelic_fraction.png"), "Allelic Fraction",pc_num)
 
 }
+
+# Plot correlation histogram for summary stat
+symmetric_correlation_heatmap_general <- function(correlation_matrix, output_file, version,num_pc) {
+    nn <- dim(correlation_matrix)[1]
+    vec <- c()
+    for (i in 1:nn){
+        for (j in 1:nn) {
+            if (i != j) {
+                vec <- c(vec,correlation_matrix[i,j])
+            }
+        }
+    }
+    maxy <- max(vec)
+    for (i in 1:nn) {
+        correlation_matrix[i,i] <- maxy
+    }
+    melted_corr <- melt(correlation_matrix)
+
+    # Axis labels are factors
+    melted_corr$X1 <- factor(melted_corr$X1, levels = rownames(correlation_matrix))
+    melted_corr$X2 <- factor(melted_corr$X2, levels = colnames(correlation_matrix))
+
+    #  PLOT!
+    heatmap <- ggplot(data=melted_corr, aes(x=X1, y=X2)) + geom_tile(aes(fill=value)) 
+    #heatmap <- heatmap + scale_fill_distiller()
+    #heatmap <- heatmap + scale_fill_brewer(values = brewer.pal(3,"RdPu"))
+    heatmap <- heatmap + scale_fill_distiller(palette = "RdPu", direction=1)
+    heatmap <- heatmap + theme(text = element_text(size=18), panel.background = element_blank(), axis.text.x = element_text(angle = 90))
+    heatmap <- heatmap + labs(x = "Cell type", y = "Cell type", title=paste0("Num PCs = ",num_pc," / version = ", version), fill= "Spearman Rho")
+
+    ggsave(heatmap, file=output_file,width = 25,height=18,units="cm")
+
+
+}
+
+
+# Plot correlation histogram for summary stat
+assymetric_correlation_heatmap_general <- function(correlation_matrix, output_file, version,num_pc) {
+    nn1 <- dim(correlation_matrix)[1]
+    nn2 <- dim(correlation_matrix)[2]
+    vec <- c()
+    for (i in 1:nn1){
+        for (j in 1:nn2) {
+            vec <- c(vec,correlation_matrix[i,j])
+        }
+    }
+    maxy <- max(vec)
+    melted_corr <- melt(correlation_matrix)
+
+    # Axis labels are factors
+    melted_corr$X1 <- factor(melted_corr$X1, levels = rownames(correlation_matrix))
+    melted_corr$X2 <- factor(melted_corr$X2, levels = colnames(correlation_matrix))
+
+    #  PLOT!
+    heatmap <- ggplot(data=melted_corr, aes(x=X1, y=X2)) + geom_tile(aes(fill=value)) 
+    #heatmap <- heatmap + scale_fill_distiller()
+    #heatmap <- heatmap + scale_fill_brewer(values = brewer.pal(3,"RdPu"))
+    heatmap <- heatmap + scale_fill_distiller(palette = "RdPu", direction=1)
+    heatmap <- heatmap + theme(text = element_text(size=18), panel.background = element_blank(), axis.text.x = element_text(angle = 90))
+    heatmap <- heatmap + labs(x = "Cell type", y = "Cell type", title=paste0("Num PCs = ",num_pc," / version = ", version), fill= "Spearman Rho")
+
+    ggsave(heatmap, file=output_file,width = 25,height=18,units="cm")
+
+
+}
+
+line_plot_of_spearman_correlation_with_banovich_results_across_time <- function(parameter_string, pc_num, cht_output_dir, cht_visualization_dir) {
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_banovich_studies_geometric_mean_05.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_spearman_correlation_with_banovich_results_across_time_line_plot.png")
+    
+    raw_data <- read.table(input_file, header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    ipsc_corr_vec <- corr_mat[(dim(raw_data)[2] -2),]
+    ipsc_cm_corr_vec <- corr_mat[(dim(raw_data)[2]-1),]
+    # Remove non-time steps
+    ipsc_corr_vec <- ipsc_corr_vec[1:(length(ipsc_corr_vec)-2)]
+    ipsc_cm_corr_vec <- ipsc_cm_corr_vec[1:(length(ipsc_cm_corr_vec)-2)]
+
+
+    correlation_vec <- c()
+    time_steps <- c()
+    banovich_data <- c()
+
+    correlation_vec <- c(correlation_vec, ipsc_corr_vec)
+    time_steps <- c(time_steps,0:15)
+    banovich_data <- c(banovich_data, rep("iPSC", length(0:15)))
+
+    correlation_vec <- c(correlation_vec, ipsc_cm_corr_vec)
+    time_steps <- c(time_steps,0:15)
+    banovich_data <- c(banovich_data, rep("iPSC-CM", length(0:15)))
+
+
+    df <- data.frame(correlation=correlation_vec, time_step=time_steps, data_type=factor(banovich_data))
+    print(df)
+
+    #PLOT!
+    scatter <- ggplot(df, aes(x = time_steps, y = correlation, colour = data_type)) + geom_line(size=3.5) 
+    scatter <- scatter + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    scatter <- scatter + labs(colour="Data Type",x = "Time Step", y = "Spearman Correlation")
+
+    ggsave(scatter,file=output_file, width = 25,height=18,units="cm")
+}
+
+
+summary_statistic_correlation_heatmap_include_gtex <- function(parameter_string, pc_num, cht_output_dir, cht_visualization_dir) {
+    
+    # Run when variant gene pairs are selected by those significant egenes (efdr <= .05). Best variant per gene selected by geometric mean
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_05.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_05_asymmetric_heatmap.png")
+    raw_data <- read.table(input_file,header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    corr_mat_asymetric <- corr_mat[1:16,]
+    corr_mat_asymetric <- corr_mat_asymetric[,17:(dim(corr_mat_asymetric)[2])]
+    assymetric_correlation_heatmap_general(corr_mat_asymetric, output_file, "geometric_mean_05", pc_num)
+    
+    # Run when variant gene pairs are selected by those significant egenes (efdr <= .1). Best variant per gene selected by geometric mean
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_1.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_1_asymmetric_heatmap.png")
+    raw_data <- read.table(input_file,header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    corr_mat_asymetric <- corr_mat[1:16,]
+    corr_mat_asymetric <- corr_mat_asymetric[,17:(dim(corr_mat_asymetric)[2])]
+    assymetric_correlation_heatmap_general(corr_mat_asymetric, output_file, "geometric_mean_1", pc_num)
+
+    # Run when variant gene pairs are selected by those significant egenes (efdr <= .1). Best variant per gene selected by geometric mean
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_all_egenes.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_all_egenes_asymmetric_heatmap.png")
+    raw_data <- read.table(input_file,header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    corr_mat_asymetric <- corr_mat[1:16,]
+    corr_mat_asymetric <- corr_mat_asymetric[,17:(dim(corr_mat_asymetric)[2])]
+    assymetric_correlation_heatmap_general(corr_mat_asymetric, output_file, "all_egenes", pc_num)
+
+
+
+    # Run when variant gene pairs are selected by those significant egenes (efdr <= .05). Best variant per gene selected by geometric mean
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_05.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_05_symmetric_heatmap.png")
+    raw_data <- read.table(input_file,header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    symmetric_correlation_heatmap_general(corr_mat, output_file, "geometric_mean_05", pc_num)
+
+
+    # Run when variant gene pairs are selected by those significant egenes (efdr <= .1). Best variant per gene selected by geometric mean
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_1.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_geometric_mean_1_symmetric_heatmap.png")
+    raw_data <- read.table(input_file,header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    symmetric_correlation_heatmap_general(corr_mat, output_file, "geometric_mean_1", pc_num)
+
+    # Run when variant gene pairs are selected by those significant egenes (efdr <= .1). Best variant per gene selected by geometric mean
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_all_egenes.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_gtex_v7_all_egenes_symmetric_heatmap.png")
+    raw_data <- read.table(input_file,header=TRUE)
+    pvalues <- raw_data[,2:(dim(raw_data)[2])]
+    corr_mat <- cor(pvalues,method="spearman")
+    symmetric_correlation_heatmap_general(corr_mat, output_file, "all_egenes", pc_num)
+
+}
+
+
 sample_non_significant_hits <- function(pvalues, fraction_kept=.01,fraction_sampled=.001) {
     index <- floor(length(pvalues)*fraction_kept)
     to_keep <- pvalues[1:index]
@@ -344,7 +590,7 @@ eqtl_comparison_to_reference_bar_plot <- function(cht_enrichment_dir,parameter_s
     box_plot <- ggplot(df, aes(x=time_step, y=pvalues, fill=version)) + geom_boxplot(width=.54)
     box_plot <- box_plot + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
     box_plot <- box_plot + labs(fill= "Test version",x = "time step", y = "pvalue")
-    ggsave(box_plot, file=plot_file,width = 20,height=10.5,units="cm")
+    ggsave(box_plot, file=plot_file,width = 28,height=10.5,units="cm")
 }
 
 ###############################################
@@ -364,6 +610,62 @@ eqtl_comparison_to_background_shell <- function(pc_num, cht_visualization_dir, p
         # Make boxplot
         eqtl_comparison_to_reference_bar_plot(cht_enrichment_dir, parameter_string, data_set_name, pc_num, plot_file)
     }
+}
+
+
+eqtl_comparison_to_reference_bar_plot_elegant <- function(cht_enrichment_dir,parameter_string, data_set_name, pc_num, plot_file) {
+    # First extract data. And get into nice data format
+    pvalues <- c()
+    version <- c()
+    time_step <- c()
+    median_matched_pvalues <- c()
+    # Loop through time steps
+    for (temp_time_step in 0:15) {
+        # Get and parse enrichment file for this time step
+        ipsc_file <- paste0(cht_enrichment_dir,"enrichment_results_",parameter_string,"_num_pc_",pc_num,"_time_",temp_time_step,"_", data_set_name,"_real_v_matched_controls.txt")
+        data <- read.table(ipsc_file,header=TRUE)
+        pvalues <- c(pvalues,data$real_pvalue)
+        time_step <- c(time_step, rep(temp_time_step, length(data$real_pvalue)))
+        version <- c(version, as.character(rep("real", length(data$real_pvalue))))
+        #pvalues <- c(pvalues,data$matched_pvalue)
+        median_matched_pvalues <- c(median_matched_pvalues, data$matched_pvalue)
+        #time_step <- c(time_step, rep(temp_time_step, length(data$matched_pvalue)))
+        #version <- c(version, as.character(rep("matched", length(data$matched_pvalue))))
+        #print(temp_time_step)
+        #print(wilcox.test(data$real_pvalue,data$matched_pvalue))
+    }
+
+    matched_pvalz <- -log10(median_matched_pvalues +.000000001)
+
+
+    df <- data.frame(pvalues = as.numeric(-log10(pvalues+.000000001)), time_step_int=as.numeric(time_step), time_step = factor(time_step))
+
+    #df_line <- data.frame(time=0:15, pvalues=median_matched_pvalues)
+
+    box_plot <- ggplot() + geom_boxplot(data=df,aes(x=time_step, y=pvalues), fill="deepskyblue2",width=.54, outlier.colour = NULL, outlier.fill=NULL, outlier.shape=NA)
+    #box_plot <- boxplot + geom_line(data = df_line, aes(x =time, y = pvalues, group=1))
+    box_plot <- box_plot + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    box_plot <- box_plot + labs(fill= "Test version",x = "time step", y = "-log10(pvalue)") + theme(legend.position="none") #+ scale_fill_gradient(low="pink",high="blue")
+    box_plot <- box_plot + geom_hline(yintercept = median(matched_pvalz),colour="red",size=.8)
+    box_plot <- box_plot + coord_cartesian(ylim=c(0,5.0))
+    ggsave(box_plot, file=plot_file,width = 28,height=10.5,units="cm")
+}
+
+
+eqtl_comparison_reference_shell <- function(pc_num, cht_visualization_dir, parameter_string, cht_enrichment_dir, eqtl_data_set_file) {
+    # Load in data set data
+    data_sets <- read.table(eqtl_data_set_file)
+    num_data_sets <- dim(data_sets)[1]
+    # Loop through each of data sets
+    for (data_set_num in 1:num_data_sets) {
+        print(data_set_num)
+        # Name of data set of this line
+        data_set_name <- paste0(data_sets[data_set_num, 1])
+        # Output file
+        plot_file <- paste0(cht_visualization_dir,parameter_string,"_num_pc_",pc_num,"_data_set_comparison_",data_set_name,"_boxplot_elegant.png")
+        # Make boxplot
+        eqtl_comparison_to_reference_bar_plot_elegant(cht_enrichment_dir, parameter_string, data_set_name, pc_num, plot_file)
+    }  
 }
 
 ###############################################
@@ -491,54 +793,10 @@ kmeans_cluster_of_summary_statistics <- function(statistic_matrix, output_file, 
     # Make Line plot
     p4 <- visualize_trajectories_for_one_cluster(filtered_statistic_matrix, cluster_center, statistic_type, cluster_num)
 
-    # Loop through clusters
-    cluster_num <- 5
-    # filter matrix to only samples belonging to current cluster
-    filtered_statistic_matrix <- statistic_matrix[cluster_assignments == cluster_num,] 
-    # get center of this cluster
-    cluster_center <- centers[cluster_num,]
-    # Make Line plot
-    p5 <- visualize_trajectories_for_one_cluster(filtered_statistic_matrix, cluster_center, statistic_type, cluster_num)
-
-    # Loop through clusters
-    cluster_num <- 6
-    # filter matrix to only samples belonging to current cluster
-    filtered_statistic_matrix <- statistic_matrix[cluster_assignments == cluster_num,] 
-    # get center of this cluster
-    cluster_center <- centers[cluster_num,]
-    # Make Line plot
-    p6 <- visualize_trajectories_for_one_cluster(filtered_statistic_matrix, cluster_center, statistic_type, cluster_num)
-
-    # Loop through clusters
-    cluster_num <- 7
-    # filter matrix to only samples belonging to current cluster
-    filtered_statistic_matrix <- statistic_matrix[cluster_assignments == cluster_num,] 
-    # get center of this cluster
-    cluster_center <- centers[cluster_num,]
-    # Make Line plot
-    p7 <- visualize_trajectories_for_one_cluster(filtered_statistic_matrix, cluster_center, statistic_type, cluster_num)
-
-    # Loop through clusters
-    cluster_num <- 8
-    # filter matrix to only samples belonging to current cluster
-    filtered_statistic_matrix <- statistic_matrix[cluster_assignments == cluster_num,] 
-    # get center of this cluster
-    cluster_center <- centers[cluster_num,]
-    # Make Line plot
-    p8 <- visualize_trajectories_for_one_cluster(filtered_statistic_matrix, cluster_center, statistic_type, cluster_num)
-
-    # Loop through clusters
-    cluster_num <- 9
-    # filter matrix to only samples belonging to current cluster
-    filtered_statistic_matrix <- statistic_matrix[cluster_assignments == cluster_num,] 
-    # get center of this cluster
-    cluster_center <- centers[cluster_num,]
-    # Make Line plot
-    p9 <- visualize_trajectories_for_one_cluster(filtered_statistic_matrix, cluster_center, statistic_type, cluster_num)
 
 
     pdf(output_file)
-    gg <- plot_grid(p1,p2,p3,p4,p5,p6,p7,p8,p9,nrow=3,ncol=3,label_size=8)
+    gg <- plot_grid(p1,p2,p3,p4,nrow=2,ncol=2,label_size=8)
     combined_gg <- ggdraw() + draw_plot(gg,0,0,1,1)
     print(combined_gg)
     dev.off()
@@ -548,22 +806,37 @@ kmeans_cluster_of_summary_statistics <- function(statistic_matrix, output_file, 
 visualize_number_of_genome_wide_significant_egenes <- function(input_stem, output_file) {
     num_genes <- c()
     for (temp_time_step in 0:15) {
-        sig_egene_file <- paste0(input_stem, temp_time_step, "_qval_.1_significant_egenes.txt")
+        sig_egene_file <- paste0(input_stem, temp_time_step, "_efdr_thresh_.05_significant_egenes.txt")
         data <- read.table(sig_egene_file,header=TRUE)
         time_step_num_egenes <- dim(data)[1]
         num_genes <- c(num_genes, time_step_num_egenes)
     }
+    print("MEAN NUM GENES")
+    print(mean(num_genes))
     df <- data.frame(time_step=0:15, num_egenes=num_genes)
     p <- ggplot(df, aes(time_step, num_genes)) 
     p <- p + geom_bar(stat = "identity",aes(fill=time_step)) 
     p <- p + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
-    p <- p + labs(x = "time step", y = "Number of egenes (FDR <= .1)", title="egenes found with WASP-CHT")
+    p <- p + labs(x = "time step", y = "Number of eQTL genes", title="eQTL genes (FDR <= .05) found with WASP-CHT")
     p <- p + scale_fill_gradient(low="pink",high="blue")
     p <- p + theme(legend.position="none")
     ggsave(p, file=output_file,width = 20,height=10.5,units="cm")
 
 }
 
+eqtl_sharing_plot <- function(input_file, output_file, pc_num) {
+    data = read.table(input_file)
+    num_hits <- data$V3
+
+    df <- data.frame(num_time_steps=num_hits)
+
+
+    histo <- ggplot(data=df, aes(df$num_time_steps)) +
+    geom_histogram(breaks=seq(.5, 16.5, by = 1),col="red", fill="green",alpha = .2) +
+            labs(x="Number of time steps eqtl is significant in", y="Count", title=paste0("eqtl sharing (",pc_num, " PCs)"))
+    ggsave(histo, file=output_file, width=20, height=10.5, units="cm")
+
+}
 
 
 parameter_string = args[1]  # string used to keep track of files used with specified parameter settting
@@ -578,8 +851,19 @@ eqtl_data_set_file = args[5]  # Input file containing info (1 line) for each of 
 output_file <- paste0(cht_visualization_dir, parameter_string, "egenes_as_function_of_pcs_boxplot.png")
 # egenes_as_function_of_pcs_boxplot(cht_output_dir, parameter_string, output_file)
 
+###############################################
+# Violinplot of number of egenes as a function of number of pcs
+#  Each point in violin is a time step
+output_file <- paste0(cht_visualization_dir, parameter_string, "egenes_as_function_of_pcs_violinplot.png")
+#egenes_as_function_of_pcs_violinplot(cht_output_dir, parameter_string, output_file)
 
 
+
+for (pc_num in 0:5) {
+    input_file <- paste0(cht_output_dir,parameter_string,"_num_pc_",pc_num,"_fdr_.05_eqtl_sharing.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_eqtl_sharing_histogram.png")
+    #eqtl_sharing_plot(input_file, output_file, pc_num)
+}
 
 
 
@@ -597,9 +881,36 @@ for (pc_num in 0:5) {
 # Heatmap of correlation of summary statistics between time steps
 # Ie. heatmap is of dimension number of time steps by number of time steps
 # Do independently for each number of PCs
-for (pc_num in 0:5) {
+for (pc_num in 0:0) {
     #summary_statistic_correlation_heatmap(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
 }
+
+
+
+###############################################
+# Heatmap of correlation of summary statistics between time steps and between gtex tissues
+# Ie. heatmap is of dimension number of time steps+num_gtex_tissues by number of time steps+num_gtex_tissues
+# Do independently for each number of PCs
+for (pc_num in 0:5) {
+    #summary_statistic_correlation_heatmap_include_gtex(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
+}
+
+
+###############################################
+# Line plot showing spearman correlation between banovich ipsc/cm results (two colors) and each of the 16 time points (x-axis)
+for (pc_num in 3:3) {
+    #line_plot_of_spearman_correlation_with_banovich_results_across_time(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
+}
+
+###############################################
+# Boxplot taking significant top n variant gene pairs in each time step, and plotting -log10 pvalue of those variant gene pairs for banovich ipscs and ipsc-cms
+num_genes <- 100
+for (pc_num in 3:3) {
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results_boxplot.pdf")
+    boxplot_showing_top_n_variant_gene_pairs_per_time_step_with_banovich_results(input_file, output_file, num_genes, pc_num)
+}
+
 
 
 ###############################################
@@ -608,12 +919,12 @@ for (pc_num in 0:5) {
 ## 2. Permuted-data pvalues compared to uniform
 ## Done independently for each PC 
 ## Each output image has 16 subplots (1 for each time step)
-for (pc_num in 0:5) {
+for (pc_num in 3:3) {
     # Output file
     output_file <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_qq_plot_vs_uniform.pdf")
     # Input file stems
     input_stem <- paste0(cht_output_dir, "cht_results_",parameter_string,"_num_pc_",pc_num,"_time_")
-    null_stem <- paste0(cht_output_dir,"cht_perm_results_",parameter_string,"_num_pc_",pc_num,"_time_")
+    null_stem <- paste0(cht_output_dir,"cht_perm1_results_",parameter_string,"_num_pc_",pc_num,"_time_")
     #qq_plot_vs_uniform(input_stem,null_stem,output_file)
 }
 
@@ -623,12 +934,12 @@ for (pc_num in 0:5) {
 ## 1. Real-data pvalues compared to permuted
 ## Done independently for each PC 
 ## Each output image has 16 subplots (1 for each time step)
-for (pc_num in 0:5) {
+for (pc_num in 3:3) {
     # Output file
     output_file <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_qq_plot_vs_permuted.pdf")
     # Input file stems
     input_stem <- paste0(cht_output_dir, "cht_results_",parameter_string,"_num_pc_",pc_num,"_time_")
-    null_stem <- paste0(cht_output_dir,"cht_perm_results_",parameter_string,"_num_pc_",pc_num,"_time_")
+    null_stem <- paste0(cht_output_dir,"cht_perm1_results_",parameter_string,"_num_pc_",pc_num,"_time_")
     # qq_plot_vs_permuted(input_stem,null_stem,output_file)
 }
 
@@ -640,8 +951,16 @@ for (pc_num in 0:5) {
 # Boxplot showing pvalues found in our data for only the eqtls in a specific data set
 # 1 plot per data set
 # 1 plot for pc
-for (pc_num in 0:5) {
+for (pc_num in 0:3) {
     #eqtl_comparison_to_background_shell(pc_num, cht_visualization_dir, parameter_string, cht_enrichment_dir, eqtl_data_set_file)
+}
+
+###############################################
+# Boxplot showing pvalues found in our data for only the eqtls in a specific data set
+# 1 plot per data set
+# 1 plot for pc
+for (pc_num in 0:3) {
+    #eqtl_comparison_reference_shell(pc_num, cht_visualization_dir, parameter_string, cht_enrichment_dir, eqtl_data_set_file)
 }
 
 
@@ -653,7 +972,7 @@ for (pc_num in 0:5) {
 ## 3. stomach
 ## 4. Breast
 # 1 plot for pc
-for (pc_num in 0:5) {
+for (pc_num in 0:3) {
     tissue_comparison_plot_file <- paste0(cht_visualization_dir,parameter_string,"_num_pc_",pc_num, "_gtex_tissue_beta_filter_comparison.png")
     #gtex_tissue_comparison_bar_plot(tissue_comparison_plot_file, pc_num, parameter_string, cht_enrichment_dir)
 }
@@ -665,7 +984,7 @@ for (pc_num in 0:5) {
 
 
 
-k <- 9 # Number of cluster centers for kmeans
+k <- 4 # Number of cluster centers for kmeans
 
 pc_num <- 0
     alpha_file <- paste0(cht_output_dir, "best_variant_per_egene_", parameter_string, "_num_pc_", pc_num, "_alpha.txt")
@@ -675,17 +994,17 @@ pc_num <- 0
 
     # Load in summary statistic data
     # Each data structure is of dimension (Num_samples) X (Num_time steps)
-    alpha <- read_in_summary_statistic_data(alpha_file)
-    beta <- read_in_summary_statistic_data(beta_file)
-    pvalue <- read_in_summary_statistic_data(pvalue_file)
+    #alpha <- read_in_summary_statistic_data(alpha_file)
+    #beta <- read_in_summary_statistic_data(beta_file)
+    #pvalue <- read_in_summary_statistic_data(pvalue_file)
     # Compute allelic fraction (or p as it is referred to in the WASP paper)
-    allelic_fraction <- alpha/(alpha + beta)
+    #allelic_fraction <- alpha/(alpha + beta)
 
 
-    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_kmeans_clustering_", k, "_allelic_fraction.pdf")
+    #output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_kmeans_clustering_", k, "_allelic_fraction.pdf")
     #kmeans_cluster_of_summary_statistics(allelic_fraction, output_file, pc_num, k, "allelic fraction")
 
-    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_kmeans_clustering_", k, "_pvalues.pdf")
+    #output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_kmeans_clustering_", k, "_pvalues.pdf")
     #kmeans_cluster_of_summary_statistics(-log10(pvalue + .00000001), output_file, pc_num, k, "-log10(pvalue)")
 
 

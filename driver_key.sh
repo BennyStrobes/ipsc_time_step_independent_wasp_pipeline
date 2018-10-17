@@ -2,11 +2,10 @@
 ######################################
 # TIME STEP INDEPENDENT WASP ANALYSIS
 ######################################
-# HELLO
 
 # This scripts assumes you have run the ipsc_preproccess_pipeline first (https://github.com/BennyStrobes/ipsc_preprocess_pipeline)
 # And have save the results here:
-preprocess_dir="/project2/gilad/bstrober/ipsc_differentiation/preprocess/"
+preprocess_dir="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess/"
 
 
 
@@ -14,7 +13,7 @@ preprocess_dir="/project2/gilad/bstrober/ipsc_differentiation/preprocess/"
 # Input Files
 ##########################################################################
 # Gencode hg19 gene annotation file
-gencode_gene_annotation_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/gencode.v19.annotation.gtf.gz"
+gencode_gene_annotation_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/gencode.v19.annotation.gtf.gz"
 
 # Genotype directory created in preprocess pipeline (contains genotype data in h5 format)
 genotype_dir=$preprocess_dir"genotype/"
@@ -24,7 +23,7 @@ raw_allelic_counts_dir=$preprocess_dir"raw_allelic_counts/"
 
 # Downloaded from http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chromInfo.txt.gz on 10/20/17
 # Required by WASP
-chrom_info_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/chromInfo.txt"
+chrom_info_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/chromInfo.txt"
 
 # Heterozygous probability genotype file for all cell_lines in our analysis
 # These heterozygous probabilities come from impute2
@@ -51,17 +50,42 @@ corrected_quantile_normalized_expression=$preprocess_dir"processed_total_express
 
 # File where each row contains information on an eqtl data set we want to compare with
 # File was manually curated by me
-eqtl_data_set_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/eqtl_data_sets/eqtl_data_sets.txt"
+eqtl_data_set_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eqtl_data_sets_temp.txt"
+
+# File containing egene and all-eqtl files for gtex tissues we are interested in comparing with
+used_gtex_tissues_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/used_gtex_tissues.txt"
 
 # Result of running metasoft on v7 eqtls
 # Downloaded from: https://www.gtexportal.org/home/datasets on December 19, 2017
-mvalue_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_v7.metasoft.txt"
+mvalue_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_v7.metasoft.txt"
+
+# Directory containing chromHMM results
+# Each cell line has its own file with suffix $cell_line_identifier'_15_coreMarks_mnemonics.bed.gz'
+chrom_hmm_input_dir="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/chrom_hmm/"
+
+# File containing necessary information to convert from rsid to snpid and vice-versa
+snp_id_to_rs_id_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/GTEx_Analysis_2016-01-15_v7_WGS_652ind_VarID_Lookup_Table.txt"
+
+# CM eqtl file
+# Downloaded here http://eqtl.uchicago.edu/yri_ipsc/eQTL_WASP_CM.txt
+cm_eqtl_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eQTL_WASP_CM_thresh_1.0.txt"
+
+# CM eqtl egene file
+cm_egene_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/eQTL_WASP_CM_egenes_thresh_1e-05.txt"
+
+# ipsc eqtl file
+# Downloaded here http://eqtl.uchicago.edu/yri_ipsc/iPSC-eQTL-summary.txt
+ipsc_eqtl_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/ipsc_eqtl_all/ipsc_eqtl_all_associations.txt"
+
+# ipsc eqtl egene file
+ipsc_egene_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/eqtl_data_sets/permutations.all.RNAseq_run.fixed.txt.gz.bh.txt"
+
 
 ##########################################################################
 # Output Directories (Assumes these directories exist before script starts)
 ##########################################################################
 # Root directory for ipsc qtl pipelines
-wasp_qtl_root="/project2/gilad/bstrober/ipsc_differentiation/time_step_independent_qtl_pipelines/wasp/"
+wasp_qtl_root="/project2/gilad/bstrober/ipsc_differentiation_19_lines/time_step_independent_qtl_pipelines/wasp/"
 
 # Directory containing target regions for WASP Test
 target_regions_dir=$wasp_qtl_root"target_regions/"
@@ -90,13 +114,13 @@ cis_distance=50000
 maf_cutoff=.1
 
 #  Must be >= $min_read_count (summed across all cell lines in 1 time step) reads at heterozygous variant!
-min_read_count=60
+min_read_count=100
 
 # Must be >= $min_as_read_count (summed across all cell lines in 1 time step) reads on less popular (min transformation) allele
-min_as_read_count=10
+min_as_read_count=25
 
 # Must be $min_het_count heterozygous variant in exon of gene of interest
-min_het_count=2
+min_het_count=5
 
 # Keep track of model parameters
 parameter_string="cis_distance_"$cis_distance"_maf_cutoff_0"$maf_cutoff"_min_reads_"$min_read_count"_min_as_reads_"$min_as_read_count"_min_het_counts_"$min_het_count
@@ -133,6 +157,10 @@ done
 fi
 
 
+
+
+
+
 ###################################################################
 ### Step 2: merge_wasp_target_regions.sh
 ### This script makes a list of variant gene pairs (to be tested with CHT) that pass step 1's filters in ALL time steps
@@ -146,7 +174,10 @@ fi
 ### Step 3: wasp_haplotype_shell.sh (run in parrallel for each sample)
 ### This script makes a CHT input file for each sample
 ### This script calls extract_haplotype_read_counts.py (WASP script)
-### Takes about 4 hours per sample
+### We run this script twice per sample:
+###### 1. Once to create input file for WASP (homozygous test variants have no allelic read counts)
+###### 2. Once to create input file for EAGLE2 (homozygous test variant do have allelic read counts)
+### Takes about 8 hours per sample
 if false; then
 for time_step in $(seq 0 15); do
     sample_file=$target_regions_dir"rna_seq_samples_"$time_step".txt"
@@ -155,6 +186,12 @@ for time_step in $(seq 0 15); do
     done<$sample_file
 done
 fi
+
+
+if false; then
+sbatch update_total_depth.sh $genotype_dir $cht_input_file_dir
+fi
+
 
 ###################################################################
 ### Step 4: fit_overdispersion_parameter.sh (run in parrallel for each time step)
@@ -168,7 +205,6 @@ for time_step in $(seq 0 15); do
     sbatch fit_overdispersion_parameters.sh $time_step $parameter_string $cht_input_file_dir $target_regions_dir
 done
 fi
-
 
 
 
@@ -195,9 +231,8 @@ fi
 ### Sure is.
 ### DATA CRUNCHING!!!! NUM NUM NUM NUM.
 ### Because of this future, users probably shouldn't submit all at once.
-
 if false; then
-for pc_num in $(seq 0 5); do
+for pc_num in $(seq 0 0); do
     for time_step in $(seq 0 15); do 
         for chrom_num in $(seq 1 22); do 
             sbatch submit_chrom_parallel_cht_test.sh $time_step $chrom_num $pc_num $parameter_string $cht_input_file_dir $cht_output_dir
@@ -224,14 +259,101 @@ fi
 ##################################################################
 ### Visualize results / Perform downstream analysis on WASP results
 ##################################################################
-if false; then
-for pc_num in $(seq 0 5); do
+for pc_num in $(seq 3 3); do
+    if false; then
     python get_best_variant_per_gene.py $parameter_string $cht_output_dir $pc_num
+    sbatch submit_organize_tests_across_studies.sh $parameter_string $cht_output_dir $pc_num $used_gtex_tissues_file $snp_id_to_rs_id_file $dosage_genotype_file $cm_eqtl_file $cm_egene_file $ipsc_eqtl_file $ipsc_egene_file
+    fi
+done
+
+num_genes="200"
+alpha=".25"
+
+fdr=".05"
+if false; then
+for pc_num in $(seq 3 3); do
+    sh run_matrix_factorization.sh $parameter_string $cht_output_dir $cht_visualization_dir $target_regions_dir $gencode_gene_annotation_file $num_genes $alpha $fdr $pc_num
 done
 fi
+
+
+
+
 
 Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization_dir $cht_enrichment_dir $eqtl_data_set_file
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+######################################
+# Old Analysis (not used currently)
+#######################################
+
+
+
+
+
+
+if false; then
+python run_gene_set_enrichment_analysis.py $parameter_string $cht_output_dir $cht_visualization_dir $target_regions_dir $gencode_gene_annotation_file $ipsc_egene_file $ipsc_eqtl_file $cm_egene_file $cm_eqtl_file $eqtl_data_set_file
+fi
+
+
+num_permutations="1000"
+efdr=".1"
+if false; then
+for pc_num in $(seq 0 5); do
+    if false; then
+    for time_step in $(seq 0 15); do 
+        sbatch cre_enrichment_analysis.sh $parameter_string $cht_output_dir $cht_visualization_dir $pc_num $chrom_hmm_input_dir $cht_enrichment_dir $num_permutations $efdr $time_step
+    done
+    fi
+    Rscript visualize_cre_enrichment_analysis.R $parameter_string $cht_visualization_dir $pc_num $cht_enrichment_dir $num_permutations $efdr 
+done
+fi
+
+if false; then
+sh banovich_cre_enrichment_analysis.sh $cht_output_dir $chrom_hmm_input_dir $num_permutations $ipsc_egene_file $cm_egene_file $num_permutations $ipsc_eqtl_file $cm_eqtl_file $parameter_string $cht_enrichment_dir $cht_visualization_dir
+fi
+
+
+
+
+
+if false; then
+sbatch cluster_variant_gene_pairs.sh $parameter_string $cht_output_dir $cht_visualization_dir
+fi
 

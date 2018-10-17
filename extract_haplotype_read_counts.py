@@ -517,7 +517,6 @@ def get_target_regions(args, chrom, words):
 
 def main():
     args = parse_args()
-
     write_header(sys.stdout)
 
     # find index of individual in list of samples

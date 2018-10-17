@@ -27,10 +27,10 @@ def extract_all_significant_variant_gene_pairs(qtls, file_name):
     return qtls
 
 
-def extract_variant_gene_pairs(cht_output_dir, parameter_string):
+def extract_variant_gene_pairs(cht_output_dir, parameter_string, fdr):
     qtls = {}
     for time_step in range(16):
-        file_name = cht_output_dir + 'cht_results_' + parameter_string + '_time_' + str(time_step) + '_qval_.1_significant.txt'
+        file_name = cht_output_dir + 'cht_results_' + parameter_string + '_time_' + str(time_step) + '_efdr_thresh_' + str(fdr) + '_significant.txt'
         qtls = extract_all_significant_variant_gene_pairs(qtls, file_name)
 
     qtls = fill_in_pvalues(cht_output_dir, parameter_string, qtls)
@@ -80,7 +80,8 @@ def get_egenes_through_geometric_mean(qtls):
             print('FATAL ERROR')
             pdb.set_trace()
         # Compute geometric mean
-        geometric_mean_pvalue = scipy.stats.mstats.gmean(pvalue_vector)
+        # Add '.0000000000000000000000001' gmean takes log. And otherwise we get warning for taking log of 0. This does not affect geometric mean
+        geometric_mean_pvalue = scipy.stats.mstats.gmean(pvalue_vector + .0000000000000000000000001)
 
         if gene_id not in gene_to_info: # If gene has never been seen before
             gene_to_info[gene_id] = (variant_id,geometric_mean_pvalue)
@@ -134,40 +135,80 @@ def print_summary_statistic(cht_output_dir, parameter_string, egenes_cp, output_
     t.close()
 
 
+# Create list summarizing number of time steps each variant gene pair is significant in
+def eqtl_sharing_result(eqtl_sharing_output, cht_output_dir, parameter_string, fdr):
+    t = open(eqtl_sharing_output, 'w')
+    hits = {}
+    for time_step in range(16):
+        file_name = cht_output_dir + 'cht_results_' + parameter_string + '_time_' + str(time_step) + '_efdr_thresh_' + str(fdr) + '_significant.txt'
+        f = open(file_name)
+        head_count = 0
+        for line in f:
+            line = line.rstrip()
+            data = line.split()
+            if head_count == 0:
+                head_count = head_count + 1
+                continue
+            gene = data[1]
+            rs_id = data[3]
+            test_name = gene + '_' + rs_id
+            if test_name not in hits:
+                hits[test_name] = []
+            hits[test_name].append(time_step)
+    f.close()
+
+    for time_step in range(17):
+        for hit in hits.keys():
+            if len(hits[hit]) == time_step:
+                t.write(hit + '\t' + ','.join(np.asarray(hits[hit]).astype(str)) + '\t' + str(time_step) + '\n')
+    t.close()
+
 
 parameter_string = sys.argv[1]
 cht_output_dir = sys.argv[2]
 num_pc = sys.argv[3]
 
+
+fdrs = ['.05', '.1', '.2']
 parameter_string = parameter_string + '_num_pc_' + num_pc
 
-# Extract dictionary called qtls with:
-## 1. keys that are all $gene_id + '_' + $variant_id (test name) pairs that are genome wide significant in 1 time step
-## 2. values are an array of length number of time steps. Where each element in the arrray is the pvalue of that test in that time step
-qtls = extract_variant_gene_pairs(cht_output_dir, parameter_string)
 
-# Create dictionary called egenes with keys:
-## 1. that are all $gene_id + '_' + $variant_id (test name) pairs such that the variant has the smallest geometric mean pvalue of all other variants
-egenes = get_egenes_through_geometric_mean(qtls)
+for fdr in fdrs:
+    print(fdr)
 
 
+    # Create list summarizing number of time steps each variant gene pair is significant in
+    eqtl_sharing_output = cht_output_dir + parameter_string +'_fdr_' + str(fdr) + '_eqtl_sharing.txt'
+    eqtl_sharing_result(eqtl_sharing_output, cht_output_dir, parameter_string, fdr)
 
-# Now print results to files
-egene_name_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string + '_test_names.txt'
-print_egene_name_output_file(egenes, egene_name_output_file)
 
-# Now print summary statistics for best variant per gene tests to output file 
-# 1 file per summary statistic
-# 1 row per test
-# Each row has 16 columns (1 per time step)
-egene_alpha_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string + '_alpha.txt'
-print_summary_statistic(cht_output_dir, parameter_string, egenes, egene_alpha_output_file, 6)
+    # Extract dictionary called qtls with:
+    ## 1. keys that are all $gene_id + '_' + $variant_id (test name) pairs that are genome wide significant in 1 time step
+    ## 2. values are an array of length number of time steps. Where each element in the arrray is the pvalue of that test in that time step
+    qtls = extract_variant_gene_pairs(cht_output_dir, parameter_string, fdr)
 
-egene_beta_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string + '_beta.txt'
-print_summary_statistic(cht_output_dir, parameter_string, egenes, egene_beta_output_file, 7)
+    # Create dictionary called egenes with keys:
+    ## 1. that are all $gene_id + '_' + $variant_id (test name) pairs such that the variant has the smallest geometric mean pvalue of all other variants
+    egenes = get_egenes_through_geometric_mean(qtls)
 
-egene_pvalue_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string + '_pvalues.txt'
-print_summary_statistic(cht_output_dir, parameter_string, egenes, egene_pvalue_output_file, 8)
+
+
+    # Now print results to files
+    egene_name_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string +'_fdr_' + str(fdr) + '_test_names.txt'
+    print_egene_name_output_file(egenes, egene_name_output_file)
+
+    # Now print summary statistics for best variant per gene tests to output file 
+    # 1 file per summary statistic
+    # 1 row per test
+    # Each row has 16 columns (1 per time step)
+    egene_alpha_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string +'_fdr_' + str(fdr) + '_alpha.txt'
+    print_summary_statistic(cht_output_dir, parameter_string, egenes, egene_alpha_output_file, 6)
+
+    egene_beta_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string +'_fdr_' + str(fdr) + '_beta.txt'
+    print_summary_statistic(cht_output_dir, parameter_string, egenes, egene_beta_output_file, 7)
+
+    egene_pvalue_output_file = cht_output_dir + 'best_variant_per_egene_' + parameter_string +'_fdr_' + str(fdr) + '_pvalues.txt'
+    print_summary_statistic(cht_output_dir, parameter_string, egenes, egene_pvalue_output_file, 8)
 
 
 

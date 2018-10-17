@@ -67,7 +67,7 @@ def make_background_qtls_object(our_eqtl_file, distance_bin_size, maf_bin_size, 
     return background_qtls
 
 # Extract dictionary list of variant_geneID pairs that are found to be eqtls in reference_eqtl_file
-def extract_reference_eqtls(reference_eqtl_file,version, eqtl_tissue_specificities):
+def extract_reference_eqtls(reference_eqtl_file,version):
     eqtls = {}
     # Stream file
     f = open(reference_eqtl_file)
@@ -86,6 +86,9 @@ def extract_reference_eqtls(reference_eqtl_file,version, eqtl_tissue_specificiti
         elif version == 'gtex_egene':
             gene_id = data[0].split('.')[0]
             rsid = data[18]
+            qvalue = float(data[-2])
+            if qvalue > .05:
+                continue
         elif version == 'ipsc_cardiac':
             gene_id = data[0]
             rsid = data[1]
@@ -93,51 +96,8 @@ def extract_reference_eqtls(reference_eqtl_file,version, eqtl_tissue_specificiti
             gene_id = data[0].split('.')[0]
             rsid = data[18]
             beta = float(data[24])
-            if abs(beta) < .4:
-                continue
-        elif version == 'gtex_egene_hlv_mvalue_filter':
-            gene_id = data[0].split('.')[0]
-            rsid = data[18]
-            snp_id = data[11]
-            gene_id_full = data[0]
-            tester = gene_id_full + ',' + snp_id
-            if tester not in eqtl_tissue_specificities:
-                continue
-            other_dicti = eqtl_tissue_specificities[tester]
-            if 'hlv' not in other_dicti:
-                continue
-        elif version == 'gtex_egene_stomach_mvalue_filter':
-            gene_id = data[0].split('.')[0]
-            rsid = data[18]
-            snp_id = data[11]
-            gene_id_full = data[0]
-            tester = gene_id_full + ',' + snp_id
-            if tester not in eqtl_tissue_specificities:
-                continue
-            other_dicti = eqtl_tissue_specificities[tester]
-            if 'stomach' not in other_dicti:
-                continue
-        elif version == 'gtex_egene_skin_not_sun_mvalue_filter':
-            gene_id = data[0].split('.')[0]
-            rsid = data[18]
-            snp_id = data[11]
-            gene_id_full = data[0]
-            tester = gene_id_full + ',' + snp_id
-            if tester not in eqtl_tissue_specificities:
-                continue
-            other_dicti = eqtl_tissue_specificities[tester]
-            if 'skin_not_sun' not in other_dicti:
-                continue
-        elif version == 'gtex_egene_breast_mvalue_filter':
-            gene_id = data[0].split('.')[0]
-            rsid = data[18]
-            snp_id = data[11]
-            gene_id_full = data[0]
-            tester = gene_id_full + ',' + snp_id
-            if tester not in eqtl_tissue_specificities:
-                continue
-            other_dicti = eqtl_tissue_specificities[tester]
-            if 'breast' not in other_dicti:
+            qvalue = float(data[-2])
+            if abs(beta) < .4 or qvalue > .05:
                 continue
         # Concatenate geneID and rsID to get name of test
         test_name = gene_id + '_' + rsid
@@ -252,7 +212,7 @@ eqtl_distance = float(sys.argv[4])
 mvalue_file = sys.argv[5]
 
 
-eqtl_tissue_specificities = extract_mvalue_tissue_specificities(mvalue_file)
+# eqtl_tissue_specificities = extract_mvalue_tissue_specificities(mvalue_file)
 
 # Size of bins used for background matching
 distance_bin_size = 14000
@@ -278,7 +238,7 @@ for line in f:
 
 
     # Extract dictionary list of geneID_variantID pairs that are found to be eqtls in reference_eqtl_file
-    reference_eqtls = extract_reference_eqtls(reference_eqtl_file,version, eqtl_tissue_specificities)
+    reference_eqtls = extract_reference_eqtls(reference_eqtl_file,version)
 
 
     # Stream our_eqtl_file and find those that are in our_eqtl_file

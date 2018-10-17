@@ -26,20 +26,25 @@ def get_pvalz(file_name):
     return np.asarray(aa[1:,-1]).astype(float)
 
 # Get pvalue threshold corresponding to qval_thresh in null
-def get_pval_thresh(real_file, null_file, fdr_thresh):
-    real_pvalz = get_pvalz(real_file)
-    null_pvalz = get_pvalz(null_file)
-    sorted_real_pvalz = sorted(np.unique(real_pvalz))
-    valz = []
-    prev = -1
-    for pval in sorted_real_pvalz:
-        num_real = len(np.where(real_pvalz <= pval)[0])
-        num_null = len(np.where(null_pvalz <= pval)[0])
-        emperical_fdr = float(num_null)/num_real
-        if emperical_fdr > fdr_thresh:
-            return prev
+def get_pval_thresh(efdr_file, fdr_thresh):
+    f = open(efdr_file)
+    head_count = 0
+    prev_pval = -1.0
+    f = open(efdr_file)
+    for line in f:
+        line = line.rstrip()
+        data = line.split()
+        if head_count == 0:
+            head_count = head_count + 1
+            continue
+        nominal_pvalue = float(data[1])
+        efdr = float(data[3])
+        if efdr > fdr_thresh:
+            return prev_pval
         else:
-            prev = pval
+            prev_pval = nominal_pvalue
+    print('fatal error with efdr: did not include enough top-snps param!')
+    pdb.set_trace()
 
 def filter_to_significant_results(real_file, significant_results_file, pval_thresh):
     f = open(real_file)
@@ -87,7 +92,7 @@ def filter_to_egenes(significant_results_file, significant_gene_results_file):
         t.write(liner + '\n')
     t.close()
 
-null_file = sys.argv[1]
+efdr_file = sys.argv[1]
 real_file = sys.argv[2]
 significant_results_file = sys.argv[3]  #  Output file
 significant_gene_results_file = sys.argv[4]  # Ouptut file
@@ -96,7 +101,7 @@ fdr_thresh = float(sys.argv[5])
 
 
 # Get pvalue threshold corresponding to fdr_thresh in null
-pval_thresh = get_pval_thresh(real_file, null_file, fdr_thresh)
+pval_thresh = get_pval_thresh(efdr_file, fdr_thresh)
 
 # Create list of variant-gene pairs that have pvalue less than pvalue threshold
 filter_to_significant_results(real_file, significant_results_file, pval_thresh)
