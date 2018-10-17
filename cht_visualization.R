@@ -92,10 +92,11 @@ egenes_as_function_of_pcs_violinplot <- function(cht_output_dir, parameter_strin
     # PLOT!!
     box_plot <- ggplot(df, aes(x=num_pcs, y=egenes,colour=time_step)) + geom_violin()
     box_plot <- box_plot  + geom_jitter(aes(colour=time_step),shape=16, position=position_jitter(0.06))
-    box_plot <- box_plot + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    box_plot <- box_plot + theme(text = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
     box_plot <- box_plot + scale_color_gradient(low="pink",high="blue")
-    box_plot <- box_plot + labs(x = "Number of PCs", y = "Number of eGenes")
-    ggsave(box_plot, file=output_file,width = 20,height=10.5,units="cm")
+    box_plot <- box_plot + labs(x = "Number of PCs", y = "Number of significant genes (eFDR <= .05)", colour= "Time Step") 
+    box_plot <- box_plot +  theme(legend.text = element_text(size=10)) + theme(legend.title = element_text(size=10))
+    ggsave(box_plot, file=output_file, width=7.2, height=4.0, units="in")
 }
 
 
@@ -123,7 +124,6 @@ correlation_heatmap <- function(correlation_matrix, output_file, version,num_pc)
             }
         }
     }
-    print(paste0("Num PCs = ",num_pc," / Statistic = ", version))
     lm_result <- lm(vec ~ time_step_diff)
     print(summary(lm_result))
     maxy <- max(vec)
@@ -141,10 +141,15 @@ correlation_heatmap <- function(correlation_matrix, output_file, version,num_pc)
     #heatmap <- heatmap + scale_fill_distiller()
     #heatmap <- heatmap + scale_fill_brewer(values = brewer.pal(3,"RdPu"))
     heatmap <- heatmap + scale_fill_distiller(palette = "RdPu", direction=1)
-    heatmap <- heatmap + theme(text = element_text(size=18), panel.background = element_blank(), axis.text.x = element_text(angle = 0, vjust=.5))
-    heatmap <- heatmap + labs(x = "Time Step", y = "Time Step", title=paste0("Num PCs = ",num_pc," / Statistic = ", version), fill= "Spearman Rho")
+    heatmap <- heatmap + theme(text = element_text(size=12), panel.background = element_blank(), axis.text.x = element_text(angle = 0, vjust=.5))
+    heatmap <- heatmap + theme(text = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    heatmap <- heatmap + labs(x = "Time Step", y = "Time Step", fill= expression(paste("  ",rho)))
+    heatmap <- heatmap + scale_x_discrete(breaks=c("0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"),labels=c("0","","","","","5","","","","","10","","","","","15"))
+    heatmap <- heatmap + scale_y_discrete(breaks=c("0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"),labels=c("0","","","","","5","","","","","10","","","","","15"))
 
-    ggsave(heatmap, file=output_file,width = 18,height=13.5,units="cm")
+    heatmap <- heatmap + theme(legend.text = element_text(size=10)) + theme(legend.title = element_text(size=10))
+
+    return(heatmap)
 
 
 }
@@ -177,18 +182,97 @@ summary_statistic_correlation_heatmap <- function(parameter_string, pc_num, cht_
     output_file_stem <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_correlation_heatmap_")
 
     # Plot correlation histogram for pvalue summary stat
-    correlation_heatmap(cor(pvalue,method="spearman"), paste0(output_file_stem, "pvalues.png"), "Pvalue", pc_num)
+    heatmap <- correlation_heatmap(cor(pvalue,method="spearman"), "Pvalue", pc_num)
 
     # Plot correlation histogram for pvalue summary stat
-    correlation_heatmap(cor(alpha,method="spearman"), paste0(output_file_stem, "alpha.png"), "Alpha", pc_num)
+    #correlation_heatmap(cor(alpha,method="spearman"), paste0(output_file_stem, "alpha.png"), "Alpha", pc_num)
 
     # Plot correlation histogram for pvalue summary stat
-    correlation_heatmap(cor(beta,method="spearman"), paste0(output_file_stem, "beta.png"), "Beta", pc_num)
+    #correlation_heatmap(cor(beta,method="spearman"), paste0(output_file_stem, "beta.png"), "Beta", pc_num)
 
     # Plot correlation histogram for pvalue summary stat
-    correlation_heatmap(cor(allelic_fraction,method="spearman"), paste0(output_file_stem, "allelic_fraction.png"), "Allelic Fraction",pc_num)
+    #correlation_heatmap(cor(allelic_fraction,method="spearman"), paste0(output_file_stem, "allelic_fraction.png"), "Allelic Fraction",pc_num)
+    return(heatmap)
+}
+
+
+factor_matrix_heatmap <- function(factor_matrix_file) {
+    factor_matrix <- t(as.matrix(read.table(factor_matrix_file)))
+
+    row.names(factor_matrix) = as.character(0:15)
+
+    melted_corr <- melt(factor_matrix)
+
+    # Axis labels are factors
+    melted_corr$X1 <- factor(melted_corr$X1)
+    melted_corr$X2 <- factor(melted_corr$X2)
+
+    #  PLOT!
+    heatmap <- ggplot(data=melted_corr, aes(x=X1, y=X2)) + geom_tile(aes(fill=value)) 
+    #heatmap <- heatmap + scale_fill_distiller()
+    #heatmap <- heatmap + scale_fill_brewer(values = brewer.pal(3,"RdPu"))
+    heatmap <- heatmap + scale_fill_distiller(palette = "Blues", direction=1)
+    heatmap <- heatmap + theme(text = element_text(size=12), panel.background = element_blank(), axis.text.x = element_text(angle = 0, vjust=.5))
+    heatmap <- heatmap + theme(text = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    heatmap <- heatmap + labs(x = "Time Step", y = "Latent Factor", fill= " ")
+    heatmap <- heatmap + scale_x_discrete(breaks=c("0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"),labels=c("0","","","","","5","","","","","10","","","","","15"))
+    heatmap <- heatmap + theme(legend.text = element_text(size=10)) + theme(legend.title = element_text(size=10))
+
+    return(heatmap)
+
 
 }
+
+
+make_grid_of_factor_matrices <- function(factor_matrix_root, output_file) {
+    ###########
+    alpha <- "0"
+    num_factor <- "3"
+    factor_matrix_file <- paste0(factor_matrix_root, alpha,"_",num_factor, "_loading_matrix.txt")
+    heatmap_0_3 <- factor_matrix_heatmap(factor_matrix_file) + theme(legend.position="bottom") + theme(legend.text = element_text(size=8)) + theme(legend.title = element_text(size=8))+ theme(legend.key.size =  unit(0.25, "in"))
+    heatmap_0_3_legend <- get_legend(heatmap_0_3)
+    ###########
+    alpha <- "0.5"
+    num_factor <- "3"
+    factor_matrix_file <- paste0(factor_matrix_root, alpha,"_",num_factor, "_loading_matrix.txt")
+    heatmap_.5_3 <- factor_matrix_heatmap(factor_matrix_file)+ theme(legend.position="bottom")+ theme(legend.text = element_text(size=8)) + theme(legend.title = element_text(size=8)) + theme(legend.key.size =  unit(0.25, "in"))
+    heatmap_.5_3_legend <- get_legend(heatmap_.5_3)
+    ###########
+    alpha <- "1"
+    num_factor <- "3"
+    factor_matrix_file <- paste0(factor_matrix_root, alpha,"_",num_factor, "_loading_matrix.txt")
+    heatmap_1_3 <- factor_matrix_heatmap(factor_matrix_file)+ theme(legend.position="bottom")+ theme(legend.text = element_text(size=8)) + theme(legend.title = element_text(size=8))+ theme(legend.key.size =  unit(0.25, "in"))
+    heatmap_1_3_legend <- get_legend(heatmap_1_3)
+    ###########
+    alpha <- "0"
+    num_factor <- "5"
+    factor_matrix_file <- paste0(factor_matrix_root, alpha,"_",num_factor, "_loading_matrix.txt")
+    heatmap_0_5 <- factor_matrix_heatmap(factor_matrix_file)+ theme(legend.position="bottom")+ theme(legend.text = element_text(size=8)) + theme(legend.title = element_text(size=8))+ theme(legend.key.size =  unit(0.25, "in"))
+    heatmap_0_5_legend <- get_legend(heatmap_0_5)
+    ###########
+    alpha <- "0.5"
+    num_factor <- "5"
+    factor_matrix_file <- paste0(factor_matrix_root, alpha,"_",num_factor, "_loading_matrix.txt")
+    heatmap_.5_5 <- factor_matrix_heatmap(factor_matrix_file)+ theme(legend.position="bottom")+ theme(legend.text = element_text(size=8)) + theme(legend.title = element_text(size=8))+ theme(legend.key.size =  unit(0.25, "in"))
+    heatmap_.5_5_legend <- get_legend(heatmap_.5_5)
+    ###########
+    alpha <- "1"
+    num_factor <- "5"
+    factor_matrix_file <- paste0(factor_matrix_root, alpha,"_",num_factor, "_loading_matrix.txt")
+    heatmap_1_5 <- factor_matrix_heatmap(factor_matrix_file)+ theme(legend.position="bottom")+ theme(legend.text = element_text(size=8)) + theme(legend.title = element_text(size=8))+ theme(legend.key.size =  unit(0.25, "in"))
+    heatmap_1_5_legend <- get_legend(heatmap_1_5)
+
+    combined_heatmap <- plot_grid(heatmap_0_3, heatmap_.5_3, heatmap_1_3, heatmap_0_5, heatmap_.5_5, heatmap_1_5, labels = c("a","b","c","d","e","f"), ncol=3)
+    
+    combined_heatmap2 <- ggdraw() + 
+                draw_plot(combined_heatmap, 0,0,1,.97) +
+                draw_plot_label(c("alpha=0","alpha=.5","alpha=1"),c(.11,.43,.765),c(1,1,1),size=12)
+
+
+    ggsave(combined_heatmap2,file=output_file, width=7.2, height=5,units="in")
+
+}
+
 
 # Plot correlation histogram for summary stat
 symmetric_correlation_heatmap_general <- function(correlation_matrix, output_file, version,num_pc) {
@@ -257,7 +341,6 @@ assymetric_correlation_heatmap_general <- function(correlation_matrix, output_fi
 
 line_plot_of_spearman_correlation_with_banovich_results_across_time <- function(parameter_string, pc_num, cht_output_dir, cht_visualization_dir) {
     input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_eqtls_across_time_steps_and_banovich_studies_geometric_mean_05.txt")
-    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_spearman_correlation_with_banovich_results_across_time_line_plot.png")
     
     raw_data <- read.table(input_file, header=TRUE)
     pvalues <- raw_data[,2:(dim(raw_data)[2])]
@@ -283,14 +366,14 @@ line_plot_of_spearman_correlation_with_banovich_results_across_time <- function(
 
 
     df <- data.frame(correlation=correlation_vec, time_step=time_steps, data_type=factor(banovich_data))
-    print(df)
 
     #PLOT!
-    scatter <- ggplot(df, aes(x = time_steps, y = correlation, colour = data_type)) + geom_line(size=3.5) 
-    scatter <- scatter + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
-    scatter <- scatter + labs(colour="Data Type",x = "Time Step", y = "Spearman Correlation")
+    line_plot <- ggplot(df, aes(x = time_steps, y = correlation, colour = data_type)) + geom_line(size=3.5) 
+    line_plot <- line_plot + theme(text = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) 
+    line_plot <- line_plot + labs(colour="eQTL data",x = "Time Step", y = expression(paste("Spearman's ", rho)))
+    line_plot <- line_plot + theme(legend.text = element_text(size=10)) + theme(legend.title = element_text(size=10))
 
-    ggsave(scatter,file=output_file, width = 25,height=18,units="cm")
+    return(line_plot)
 }
 
 
@@ -816,11 +899,11 @@ visualize_number_of_genome_wide_significant_egenes <- function(input_stem, outpu
     df <- data.frame(time_step=0:15, num_egenes=num_genes)
     p <- ggplot(df, aes(time_step, num_genes)) 
     p <- p + geom_bar(stat = "identity",aes(fill=time_step)) 
-    p <- p + theme(text = element_text(size=18), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
-    p <- p + labs(x = "time step", y = "Number of eQTL genes", title="eQTL genes (FDR <= .05) found with WASP-CHT")
+    p <- p + theme(text = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
+    p <- p + labs(x = "time step", y = "Number of significant genes (eFDR <= .05)")
     p <- p + scale_fill_gradient(low="pink",high="blue")
     p <- p + theme(legend.position="none")
-    ggsave(p, file=output_file,width = 20,height=10.5,units="cm")
+    ggsave(p, file=output_file, width=7.2, height=4.0, units="in")
 
 }
 
@@ -832,83 +915,54 @@ eqtl_sharing_plot <- function(input_file, output_file, pc_num) {
 
 
     histo <- ggplot(data=df, aes(df$num_time_steps)) +
-    geom_histogram(breaks=seq(.5, 16.5, by = 1),col="red", fill="green",alpha = .2) +
-            labs(x="Number of time steps eqtl is significant in", y="Count", title=paste0("eqtl sharing (",pc_num, " PCs)"))
-    ggsave(histo, file=output_file, width=20, height=10.5, units="cm")
+    geom_histogram(breaks=seq(.5, 16.5, by = 1),col="grey", fill="cyan4") +
+            labs(x="Number of time steps eqtl is significant (eFDR <= .05) in", y="Count") +
+             theme(text = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+             theme(legend.text = element_text(size=10)) + theme(legend.title = element_text(size=10))
+    ggsave(histo, file=output_file, width=7.2, height=4.0, units="in")
 
 }
+
+make_figure_2 <- function(figure_2a, figure_2b, figure_2c, output_file) {
+    figure_2a_legend <- get_legend(figure_2a)
+    figure_2b_legend <- get_legend(figure_2b)
+    figure_2c_legend <- get_legend(figure_2c)
+
+    combined <- ggdraw() + 
+                draw_plot(figure_2a + theme(legend.position='none'), 0,.58,1,.4) +
+                draw_plot(figure_2a_legend,.82,.42,1,1) +
+                draw_plot(figure_2b + theme(legend.position='none'),0,0,.43,.58) + 
+                draw_plot(figure_2b_legend,.41,-.14,1,1) +
+                draw_plot(figure_2c + theme(legend.position='none'),.5,0,.43,.58) +
+                draw_plot(figure_2c_legend,.91,-.14,1,1) +
+                draw_plot_label(c("a","b","c"),c(.03,.03,.52),c(1,.6,.6),size=12)
+    ggsave(combined, file=output_file, width=7.2, height=5.0,units="in")
+
+
+}
+
 
 
 parameter_string = args[1]  # string used to keep track of files used with specified parameter settting
 cht_output_dir = args[2]  # input directory with cht test results
 cht_visualization_dir = args[3]  # output directory to save images
+matrix_factorization_dir = args[4]  # Directory containing results from matrix factorization analysis
 
-###############################################
-# Boxplot of number of egenes as a function of number of pcs
-#  Each point in boxplot is a time step
-output_file <- paste0(cht_visualization_dir, parameter_string, "egenes_as_function_of_pcs_boxplot.png")
-# egenes_as_function_of_pcs_boxplot(cht_output_dir, parameter_string, output_file)
+
 
 ###############################################
 # Violinplot of number of egenes as a function of number of pcs
 #  Each point in violin is a time step
 output_file <- paste0(cht_visualization_dir, parameter_string, "egenes_as_function_of_pcs_violinplot.png")
-#egenes_as_function_of_pcs_violinplot(cht_output_dir, parameter_string, output_file)
+egenes_as_function_of_pcs_violinplot(cht_output_dir, parameter_string, output_file)
 
 
 
-for (pc_num in 0:5) {
+for (pc_num in 3:3) {
     input_file <- paste0(cht_output_dir,parameter_string,"_num_pc_",pc_num,"_fdr_.05_eqtl_sharing.txt")
     output_file <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_eqtl_sharing_histogram.png")
-    #eqtl_sharing_plot(input_file, output_file, pc_num)
+    eqtl_sharing_plot(input_file, output_file, pc_num)
 }
-
-
-
-###############################################
-# Bar plot showing number of genome wide significant egenes at each of the 16 time steps
-# Do this for each of the pc_nums in dependently
-for (pc_num in 0:5) {
-    output_file <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_number_of_significant_egenes_per_time_step_bar_plot.png")
-    input_stem <- paste0(cht_output_dir, "cht_results_",parameter_string,"_num_pc_",pc_num,"_time_")
-    #visualize_number_of_genome_wide_significant_egenes(input_stem, output_file)
-}
-
-
-###############################################
-# Heatmap of correlation of summary statistics between time steps
-# Ie. heatmap is of dimension number of time steps by number of time steps
-# Do independently for each number of PCs
-for (pc_num in 0:0) {
-    #summary_statistic_correlation_heatmap(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
-}
-
-
-
-###############################################
-# Heatmap of correlation of summary statistics between time steps and between gtex tissues
-# Ie. heatmap is of dimension number of time steps+num_gtex_tissues by number of time steps+num_gtex_tissues
-# Do independently for each number of PCs
-for (pc_num in 0:5) {
-    #summary_statistic_correlation_heatmap_include_gtex(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
-}
-
-
-###############################################
-# Line plot showing spearman correlation between banovich ipsc/cm results (two colors) and each of the 16 time points (x-axis)
-for (pc_num in 3:3) {
-    #line_plot_of_spearman_correlation_with_banovich_results_across_time(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
-}
-
-###############################################
-# Boxplot taking significant top n variant gene pairs in each time step, and plotting -log10 pvalue of those variant gene pairs for banovich ipscs and ipsc-cms
-num_genes <- 100
-for (pc_num in 3:3) {
-    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results.txt")
-    output_file <- paste0(cht_visualization_dir, parameter_string, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results_boxplot.pdf")
-    #boxplot_showing_top_n_variant_gene_pairs_per_time_step_with_banovich_results(input_file, output_file, num_genes, pc_num)
-}
-
 
 
 ###############################################
@@ -938,11 +992,136 @@ for (pc_num in 3:3) {
     # Input file stems
     input_stem <- paste0(cht_output_dir, "cht_results_",parameter_string,"_num_pc_",pc_num,"_time_")
     null_stem <- paste0(cht_output_dir,"cht_perm1_results_",parameter_string,"_num_pc_",pc_num,"_time_")
-    # qq_plot_vs_permuted(input_stem,null_stem,output_file)
+    qq_plot_vs_permuted(input_stem,null_stem,output_file)
 }
 
 
 
+
+
+
+
+###############################################
+# Bar plot showing number of genome wide significant egenes at each of the 16 time steps
+# Do this for each of the pc_nums in dependently
+for (pc_num in 3:3) {
+    output_file <- paste0(cht_visualization_dir, parameter_string,"_num_pc_",pc_num,"_number_of_significant_egenes_per_time_step_bar_plot.png")
+    input_stem <- paste0(cht_output_dir, "cht_results_",parameter_string,"_num_pc_",pc_num,"_time_")
+    visualize_number_of_genome_wide_significant_egenes(input_stem, output_file)
+}
+
+###############################################
+# Line plot showing spearman correlation between banovich ipsc/cm results (two colors) and each of the 16 time points (x-axis)
+for (pc_num in 3:3) {
+    figure_2a <- line_plot_of_spearman_correlation_with_banovich_results_across_time(parameter_string, pc_num, cht_output_dir)
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num,"_spearman_correlation_with_banovich_results_line_plot.png")
+    ggsave(figure_2a, file=output_file, width=7.2, height=3.0, units="in")
+}
+
+
+
+###############################################
+# Heatmap of correlation of summary statistics between time steps
+# Ie. heatmap is of dimension number of time steps by number of time steps
+# Do independently for each number of PCs
+for (pc_num in 3:3) {
+    figure_2b <- summary_statistic_correlation_heatmap(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num,"_pvalue_correlation_heatmap.png")
+    ggsave(figure_2b, file=output_file, width=7.2, height=5.3, units="in")
+
+}
+
+
+
+###############################################
+# Heatmap showing factor matrix from sparse matrix factor analysis
+for (pc_num in 3:3) {
+    sparsity_parameter = "0.5"
+    num_factors = "3"
+    factor_matrix_file <- paste0(matrix_factorization_dir,parameter_string,"_num_pc_", pc_num, "_fdr_.05_pvalue_factorization_alpha_", sparsity_parameter, "_", num_factors,"_loading_matrix.txt")
+    figure_2c <- factor_matrix_heatmap(factor_matrix_file)
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num,"_pvalue_factor_matrix_",sparsity_parameter,"_",num_factors,".png")
+    ggsave(figure_2c, file=output_file, width=7.2, height=5.3, units="in")
+
+}
+
+
+
+
+################################################
+# Make combined plot for figure 2
+output_file <- paste0(cht_visualization_dir, "figure2.png")
+make_figure_2(figure_2a, figure_2b, figure_2c, output_file)
+
+
+
+###############################################
+# Grid of heatmap showing factor matrix from sparse matrix factor analysis
+# Heatmaps will span number of latent factors and sparse prior choice
+for (pc_num in 3:3) {
+    factor_matrix_root <- paste0(matrix_factorization_dir, parameter_string, "_num_pc_", pc_num,"_fdr_.05_pvalue_factorization_alpha_")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num,"_pvalue_factor_matrices.png")
+    make_grid_of_factor_matrices(factor_matrix_root, output_file)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###########################################
+# Old (retired scripts)
+###########################################
+
+###############################################
+# Heatmap of correlation of summary statistics between time steps and between gtex tissues
+# Ie. heatmap is of dimension number of time steps+num_gtex_tissues by number of time steps+num_gtex_tissues
+# Do independently for each number of PCs
+for (pc_num in 0:5) {
+    #summary_statistic_correlation_heatmap_include_gtex(parameter_string, pc_num, cht_output_dir, cht_visualization_dir)
+}
+
+
+
+###############################################
+# Boxplot taking significant top n variant gene pairs in each time step, and plotting -log10 pvalue of those variant gene pairs for banovich ipscs and ipsc-cms
+num_genes <- 100
+for (pc_num in 3:3) {
+    input_file <- paste0(cht_output_dir, parameter_string, "_num_pc_", pc_num, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results.txt")
+    output_file <- paste0(cht_visualization_dir, parameter_string, "_top_", num_genes, "_eqtls_in_time_steps_for_banovich_results_boxplot.pdf")
+    #boxplot_showing_top_n_variant_gene_pairs_per_time_step_with_banovich_results(input_file, output_file, num_genes, pc_num)
+}
+
+
+
+###############################################
+# Boxplot of number of egenes as a function of number of pcs
+#  Each point in boxplot is a time step
+# output_file <- paste0(cht_visualization_dir, parameter_string, "egenes_as_function_of_pcs_boxplot.png")
+# egenes_as_function_of_pcs_boxplot(cht_output_dir, parameter_string, output_file)
 
 
 ###############################################
@@ -976,33 +1155,5 @@ for (pc_num in 0:3) {
 }
 
 
-
-
-# Clustering stuff (not quite done)
-
-
-
-k <- 4 # Number of cluster centers for kmeans
-
-pc_num <- 0
-    alpha_file <- paste0(cht_output_dir, "best_variant_per_egene_", parameter_string, "_num_pc_", pc_num, "_alpha.txt")
-    beta_file <- paste0(cht_output_dir, "best_variant_per_egene_", parameter_string, "_num_pc_", pc_num, "_beta.txt")
-    pvalue_file <- paste0(cht_output_dir, "best_variant_per_egene_", parameter_string, "_num_pc_", pc_num, "_pvalues.txt")
-
-
-    # Load in summary statistic data
-    # Each data structure is of dimension (Num_samples) X (Num_time steps)
-    #alpha <- read_in_summary_statistic_data(alpha_file)
-    #beta <- read_in_summary_statistic_data(beta_file)
-    #pvalue <- read_in_summary_statistic_data(pvalue_file)
-    # Compute allelic fraction (or p as it is referred to in the WASP paper)
-    #allelic_fraction <- alpha/(alpha + beta)
-
-
-    #output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_kmeans_clustering_", k, "_allelic_fraction.pdf")
-    #kmeans_cluster_of_summary_statistics(allelic_fraction, output_file, pc_num, k, "allelic fraction")
-
-    #output_file <- paste0(cht_visualization_dir, parameter_string, "_num_pc_", pc_num, "_kmeans_clustering_", k, "_pvalues.pdf")
-    #kmeans_cluster_of_summary_statistics(-log10(pvalue + .00000001), output_file, pc_num, k, "-log10(pvalue)")
 
 

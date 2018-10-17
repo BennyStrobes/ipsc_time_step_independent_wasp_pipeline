@@ -190,7 +190,7 @@ fi
 ### Run Combined Haplotype Test (CHT) / WASP
 ##################################################################
 
-# Run the following 3 steps in series
+# Run the following 4 steps in series
 ##################################################################
 
 ###################################################################
@@ -226,25 +226,14 @@ fi
 
 ##################################################################
 ### Step 3: Run down-stream analysis on WASP-CHT test results
-### The following script runs three separate down-stream analyses:
+### The following script runs three separate down-stream analyses for a range of PCs (0-5):
 ##### 1. `get_best_variant_per_gene.py`: Identify the most signficicant variant per egene (and gene with one significant per time step eQTL in any time step). The most significant variant is selected as the one with the smallest geometric mean pvalue across the 16 time steps.
 ##### 2.  `organize_tests_across_studies.py`: Using the egenes selected in part 1, find the pvalues of those variant gene pairs in Nick Banovich's iPSC and iPSC-CM eqtl data sets
 ##### 3. 'run_matrix_factorization.py': Run spare non-negative matrix factorization on the matrix of summary statisics (num_eGenesXnum_time_steps) for a range of number of latent factors and sparsity parameters
-
+### It then runs `cht_visualization.R`: Make visualizations of WASP eqtl results
 fdr=".05"
-if false; then
-for pc_num in $(seq 3 3); do
-    sh run_downstream_analysis_on_wasp_results.sh $parameter_string $cht_output_dir $pc_num $fdr $target_regions_dir $matrix_factorization_dir $cm_eqtl_file $ipsc_eqtl_file
-done
-fi
+sh run_downstream_analysis_on_wasp_results.sh $parameter_string $cht_output_dir $fdr $target_regions_dir $matrix_factorization_dir $cm_eqtl_file $ipsc_eqtl_file $cht_visualization_dir
 
-
-
-
-
-if false; then
-Rscript cht_visualization.R $parameter_string $cht_output_dir $cht_visualization_dir
-fi
 
 
 
